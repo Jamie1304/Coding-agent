@@ -25,5 +25,7 @@ describe("runnable documentation", () => {
     const ignored = await readFile(join(process.cwd(), ".prettierignore"), "utf8");
     expect(ignored).toContain(".agent/");
     expect(ignored).toContain(".agent-runs/");
+    const attributes = await readFile(join(process.cwd(), ".gitattributes"), "utf8");
+    expect(attributes).toContain("* text=auto eol=lf");
   });
 });

@@ -43,9 +43,13 @@ export async function diagnoseElectron(
   }
   const rawExecutable = pathFileValue
     ? join(packageDirectory, "dist", pathFileValue)
-    : join(packageDirectory, "dist", "electron.exe");
+    : join(packageDirectory, "dist", process.platform === "win32" ? "electron.exe" : "electron");
   const rawDetails = await fileDetails(rawExecutable);
-  const expectedRaw = join(packageDirectory, "dist", "electron.exe");
+  const expectedRaw = join(
+    packageDirectory,
+    "dist",
+    process.platform === "win32" ? "electron.exe" : "electron"
+  );
   const pathFileValid =
     Boolean(pathFileValue) &&
     isAbsolute(rawExecutable) &&
