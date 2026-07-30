@@ -1,0 +1,13 @@
+node_modules/
+dist/
+artifacts/
+coverage/
+.agent-data/
+.agent-runs/
+*.log
+*.sqlite*
+.env
+apps/vscode-extension/dist/
+apps/desktop/dist/
+playwright-report/
+test-results/

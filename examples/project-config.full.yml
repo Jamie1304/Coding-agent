@@ -1,0 +1,18 @@
+version: 1
+quality:
+  install: [npm ci]
+  focused: [npm run test:unit]
+  full: [npm run validate]
+  security: [npm audit --audit-level=high]
+github:
+  enabled: true
+  mergeMethod: squash
+  autoMerge: false
+deployment:
+  adapter: custom
+  build: [npm run build:artifact]
+  staging: [npm run deploy:staging]
+  stagingSmoke: [npm run smoke:staging]
+  production: [npm run deploy:production]
+  productionSmoke: [npm run smoke:production]
+  rollback: [npm run rollback:production]

@@ -1,0 +1,12 @@
+version: 1
+quality:
+  install: [npm ci]
+  focused: [npm run test:unit]
+  full: [npm run lint, npm run typecheck, npm test, npm run build]
+  security: [npm audit --audit-level=high]
+github:
+  enabled: true
+  mergeMethod: squash
+  autoMerge: false
+deployment:
+  adapter: disabled

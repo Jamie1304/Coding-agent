@@ -1,0 +1,12 @@
+version: 1
+quality:
+  install: [python -m pip install -e .]
+  focused: [python -m pytest tests/unit]
+  full: [python -m pytest, python -m ruff check .]
+  security: [python -m pip audit]
+github:
+  enabled: true
+  mergeMethod: squash
+  autoMerge: false
+deployment:
+  adapter: disabled

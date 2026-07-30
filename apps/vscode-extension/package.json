@@ -1,0 +1,60 @@
+{
+  "name": "personal-codex-agent-vscode",
+  "displayName": "Personal Codex Agent",
+  "description": "Local workspace bridge for Personal Codex Agent.",
+  "version": "0.2.0",
+  "publisher": "personal-codex-agent",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.cjs",
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:personalCodexAgent.open",
+    "onCommand:personalCodexAgent.sendSelection",
+    "onCommand:personalCodexAgent.setActiveProject"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "personalCodexAgent.open",
+        "title": "Personal Codex Agent: Open Desktop Agent"
+      },
+      {
+        "command": "personalCodexAgent.sendSelection",
+        "title": "Personal Codex Agent: Send Selection as Prompt"
+      },
+      {
+        "command": "personalCodexAgent.setActiveProject",
+        "title": "Personal Codex Agent: Set Active Project"
+      }
+    ],
+    "configuration": {
+      "title": "Personal Codex Agent",
+      "properties": {
+        "personalCodexAgent.dataDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Optional daemon data directory containing daemon.json."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "npm run build:extension --workspace-root",
+    "package": "npm run package:extension --workspace-root"
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "devDependencies": {
+    "@types/vscode": "1.125.0"
+  }
+}
