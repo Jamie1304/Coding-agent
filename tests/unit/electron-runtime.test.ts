@@ -15,7 +15,15 @@ describe("Electron runtime diagnosis", () => {
   it("validates the locked binary and selects a runnable application", async () => {
     const diagnostic = await diagnoseElectron(process.cwd());
     expect(diagnostic.packageVersion).toBe("43.2.0");
-    expect(diagnostic.pathFileValid).toBe(true);
+    expect(
+      diagnostic.pathFileValid,
+      JSON.stringify({
+        platform: process.platform,
+        pathFileValue: diagnostic.pathFileValue,
+        pathFile: diagnostic.pathFile,
+        rawExecutable: diagnostic.rawExecutable
+      })
+    ).toBe(true);
     expect(diagnostic.rawExists).toBe(true);
     expect(diagnostic.rawSize).toBeGreaterThan(1_000_000);
     if (diagnostic.selectedExecutable) {
