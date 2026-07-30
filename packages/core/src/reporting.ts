@@ -1,6 +1,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { AgentRun, FinalReport, PromptRevision, TimelineEvent } from "@agent/shared";
+import type {
+  AgentRun,
+  ApprovedStepPlan,
+  FinalReport,
+  PlanStep,
+  PromptRevision,
+  StepCompletionGate,
+  TimelineEvent
+} from "@agent/shared";
 
 const artifactNames = [
   "approved-specification.json",
@@ -31,7 +39,59 @@ export class ReportGenerator {
     const directory = join(root, ".agent-runs", runId);
     await mkdir(directory, { recursive: true });
     for (const name of artifactNames) {
-      await writeFile(join(directory, name), initialContent(name), "utf8");
+      await writeIfMissing(join(directory, name), initialContent(name));
+    }
+    return directory;
+  }
+
+  async initializeStepPlan(root: string, plan: ApprovedStepPlan): Promise<string> {
+    const directory = await this.initialize(root, plan.runId);
+    await writeIfMissing(
+      join(directory, "approved-step-plan.json"),
+      `${JSON.stringify(plan, null, 2)}\n`
+    );
+    await writeIfMissing(join(directory, "approved-step-plan.md"), approvedStepPlanMarkdown(plan));
+    return directory;
+  }
+
+  async initializeStepEvidence(
+    root: string,
+    runId: string,
+    step: PlanStep,
+    gate: StepCompletionGate
+  ): Promise<string> {
+    const directory = join(
+      root,
+      ".agent-runs",
+      runId,
+      "steps",
+      `${String(step.order).padStart(3, "0")}-${step.id}`
+    );
+    await mkdir(directory, { recursive: true });
+    const contents: Record<string, string> = {
+      "step-definition.json": `${JSON.stringify(step, null, 2)}\n`,
+      "completion-gate.json": `${JSON.stringify(gate, null, 2)}\n`,
+      "context-analysis.md": initialStepContent("context analysis"),
+      "implementation-summary.md": initialStepContent("implementation summary"),
+      "changed-files.md": initialStepContent("changed files"),
+      "terminal-operations.jsonl": "",
+      "runtime-start.log": "",
+      "runtime-errors.json": "[]\n",
+      "correction-attempts.json": "[]\n",
+      "acceptance-test-matrix.json": "[]\n",
+      "focused-tests.md": initialStepContent("focused tests"),
+      "runtime-tests.md": initialStepContent("runtime tests"),
+      "restart-tests.md": initialStepContent("restart tests"),
+      "ui-tests.md": initialStepContent("ui tests"),
+      "api-tests.md": initialStepContent("api tests"),
+      "diff-review.md": initialStepContent("diff review"),
+      "independent-review.md": initialStepContent("independent review"),
+      "documentation-updates.md": initialStepContent("documentation updates"),
+      "knowledge-updates.md": initialStepContent("knowledge updates"),
+      "git-checkpoint.json": "{}\n"
+    };
+    for (const [name, content] of Object.entries(contents)) {
+      await writeIfMissing(join(directory, name), content);
     }
     return directory;
   }
@@ -104,4 +164,37 @@ function initialContent(name: string): string {
   if (name.endsWith(".json")) return "{}\n";
   if (name.endsWith(".jsonl")) return "";
   return `# ${name.replace(/\.md$/, "").replaceAll("-", " ")}\n\nNot reached or not applicable.\n`;
+}
+
+function initialStepContent(name: string): string {
+  return `# ${name}\n\nNot reached or not applicable.\n`;
+}
+
+function approvedStepPlanMarkdown(plan: ApprovedStepPlan): string {
+  const steps = [...plan.steps]
+    .sort((left, right) => left.order - right.order)
+    .map(
+      (step) =>
+        `## ${step.order}. ${step.title}\n\n${step.objective}\n\n` +
+        `- Dependencies: ${step.dependencies.length ? step.dependencies.join(", ") : "None"}\n` +
+        `- Acceptance criteria: ${step.acceptanceCriteria.map((criterion) => criterion.id).join(", ")}\n` +
+        `- Required tests: ${Object.values(step.requiredTests).flat().length}\n` +
+        `- Checkpoint: ${step.gitCheckpoint.expectedCommitMessage}\n`
+    )
+    .join("\n");
+  return (
+    `# Approved step plan\n\n` +
+    `- Run: ${plan.runId}\n` +
+    `- Frozen revision: ${plan.approvedRevision}\n` +
+    `- Frozen at: ${plan.frozenAt}\n\n` +
+    steps
+  );
+}
+
+async function writeIfMissing(path: string, content: string): Promise<void> {
+  try {
+    await writeFile(path, content, { encoding: "utf8", flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
 }

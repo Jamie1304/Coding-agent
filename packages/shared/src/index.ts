@@ -96,6 +96,379 @@ export const PromptRevisionSchema = z.object({
 });
 export type PromptRevision = z.infer<typeof PromptRevisionSchema>;
 
+export const StepStateSchema = z.enum([
+  "PENDING",
+  "READY",
+  "IN_PROGRESS",
+  "CORRECTION_REQUIRED",
+  "COMPLETE",
+  "BLOCKED"
+]);
+export type StepState = z.infer<typeof StepStateSchema>;
+
+export const StepAcceptanceCriterionSchema = z.object({
+  id: z.string().min(1).max(160),
+  description: z.string().min(1).max(10_000)
+});
+export type StepAcceptanceCriterion = z.infer<typeof StepAcceptanceCriterionSchema>;
+
+export const PlanStepSchema = z.object({
+  id: z
+    .string()
+    .min(1)
+    .max(160)
+    .regex(/^[a-z0-9][a-z0-9-]*$/),
+  order: z.number().int().positive(),
+  title: z.string().min(1).max(300),
+  objective: z.string().min(1).max(20_000),
+  reason: z.string().min(1).max(20_000),
+  prerequisites: z.array(z.string().min(1)).default([]),
+  dependencies: z.array(z.string().min(1)).default([]),
+  acceptanceCriteria: z.array(StepAcceptanceCriterionSchema).min(1),
+  expectedChanges: z
+    .object({
+      filesToCreate: z.array(z.string()).default([]),
+      filesToModify: z.array(z.string()).default([]),
+      components: z.array(z.string()).default([]),
+      routes: z.array(z.string()).default([]),
+      APIs: z.array(z.string()).default([]),
+      databaseChanges: z.array(z.string()).default([])
+    })
+    .default({
+      filesToCreate: [],
+      filesToModify: [],
+      components: [],
+      routes: [],
+      APIs: [],
+      databaseChanges: []
+    }),
+  requiredTests: z
+    .object({
+      unit: z.array(z.string()).default([]),
+      integration: z.array(z.string()).default([]),
+      api: z.array(z.string()).default([]),
+      ui: z.array(z.string()).default([]),
+      endToEnd: z.array(z.string()).default([]),
+      security: z.array(z.string()).default([]),
+      runtime: z.array(z.string()).default([]),
+      restart: z.array(z.string()).default([])
+    })
+    .default({
+      unit: [],
+      integration: [],
+      api: [],
+      ui: [],
+      endToEnd: [],
+      security: [],
+      runtime: [],
+      restart: []
+    }),
+  runtimeValidation: z
+    .object({
+      startCommands: z.array(z.string()).default([]),
+      expectedProcesses: z.array(z.string()).default([]),
+      expectedPorts: z.array(z.string()).default([]),
+      routesToVisit: z.array(z.string()).default([]),
+      apiRequests: z.array(z.string()).default([]),
+      uiActions: z.array(z.string()).default([]),
+      expectedLogs: z.array(z.string()).default([]),
+      forbiddenErrors: z.array(z.string()).default([]),
+      restartCount: z.number().int().nonnegative().default(0)
+    })
+    .default({
+      startCommands: [],
+      expectedProcesses: [],
+      expectedPorts: [],
+      routesToVisit: [],
+      apiRequests: [],
+      uiActions: [],
+      expectedLogs: [],
+      forbiddenErrors: [],
+      restartCount: 0
+    }),
+  documentationUpdates: z.array(z.string()).default([]),
+  projectKnowledgeUpdates: z.array(z.string()).default([]),
+  completionEvidence: z.array(z.string().min(1)).default([]),
+  gitCheckpoint: z
+    .object({
+      commitType: z.string().min(1),
+      commitScope: z.string().min(1),
+      expectedCommitMessage: z.string().min(1),
+      pushRequired: z.boolean().default(true),
+      pullRequestUpdateRequired: z.boolean().default(true)
+    })
+    .default({
+      commitType: "chore",
+      commitScope: "steps",
+      expectedCommitMessage: "chore(steps): checkpoint",
+      pushRequired: true,
+      pullRequestUpdateRequired: true
+    })
+});
+export type PlanStep = z.infer<typeof PlanStepSchema>;
+
+export const ApprovedStepPlanSchema = z
+  .object({
+    version: z.literal(1),
+    id: z.string().min(1).max(160),
+    runId: z.string().min(1),
+    approvedRevision: z.number().int().positive(),
+    frozenAt: z.iso.datetime(),
+    createdAt: z.iso.datetime(),
+    steps: z.array(PlanStepSchema).min(1)
+  })
+  .superRefine((plan, context) => {
+    const ids = new Set<string>();
+    const orders = new Set<number>();
+    for (const [index, step] of plan.steps.entries()) {
+      if (ids.has(step.id)) {
+        context.addIssue({
+          code: "custom",
+          path: ["steps", index, "id"],
+          message: `Duplicate step id: ${step.id}`
+        });
+      }
+      ids.add(step.id);
+      if (orders.has(step.order)) {
+        context.addIssue({
+          code: "custom",
+          path: ["steps", index, "order"],
+          message: `Duplicate step order: ${step.order}`
+        });
+      }
+      orders.add(step.order);
+    }
+    for (let expectedOrder = 1; expectedOrder <= plan.steps.length; expectedOrder += 1) {
+      if (!orders.has(expectedOrder)) {
+        context.addIssue({
+          code: "custom",
+          path: ["steps"],
+          message: "Step orders must be contiguous and start at 1"
+        });
+        break;
+      }
+    }
+    const stepsById = new Map(plan.steps.map((step) => [step.id, step]));
+    for (const [index, step] of plan.steps.entries()) {
+      for (const dependency of step.dependencies) {
+        if (!stepsById.has(dependency)) {
+          context.addIssue({
+            code: "custom",
+            path: ["steps", index, "dependencies"],
+            message: `Unknown dependency: ${dependency}`
+          });
+        }
+      }
+    }
+    const visiting = new Set<string>();
+    const visited = new Set<string>();
+    const visit = (stepId: string): void => {
+      if (visiting.has(stepId)) {
+        context.addIssue({
+          code: "custom",
+          path: ["steps"],
+          message: `Cyclic step dependency detected at ${stepId}`
+        });
+        return;
+      }
+      if (visited.has(stepId)) return;
+      visiting.add(stepId);
+      for (const dependency of stepsById.get(stepId)?.dependencies ?? []) {
+        if (stepsById.has(dependency)) visit(dependency);
+      }
+      visiting.delete(stepId);
+      visited.add(stepId);
+    };
+    for (const step of plan.steps) visit(step.id);
+  });
+export type ApprovedStepPlan = z.infer<typeof ApprovedStepPlanSchema>;
+
+export const GateCheckSchema = z.discriminatedUnion("applicable", [
+  z.object({
+    applicable: z.literal(true),
+    passed: z.boolean(),
+    evidenceIds: z.array(z.string().min(1)).default([])
+  }),
+  z.object({
+    applicable: z.literal(false),
+    justification: z.string().min(1).max(10_000)
+  })
+]);
+export type GateCheck = z.infer<typeof GateCheckSchema>;
+
+export const StepCompletionGateSchema = z.object({
+  runId: z.string().min(1),
+  stepId: z.string().min(1),
+  state: StepStateSchema,
+  criteria: z.object({
+    scopeAnalysis: GateCheckSchema,
+    implementation: GateCheckSchema,
+    acceptance: GateCheckSchema,
+    requiredTests: GateCheckSchema,
+    focusedTests: GateCheckSchema,
+    runtimeStart: GateCheckSchema,
+    runtimeInteraction: GateCheckSchema,
+    runtimeErrorsResolved: GateCheckSchema,
+    restart: GateCheckSchema,
+    postRestartValidation: GateCheckSchema,
+    fullAffectedValidation: GateCheckSchema,
+    diffReview: GateCheckSchema,
+    independentReview: GateCheckSchema,
+    documentation: GateCheckSchema,
+    projectKnowledge: GateCheckSchema,
+    commit: GateCheckSchema,
+    push: GateCheckSchema,
+    pullRequest: GateCheckSchema,
+    evidenceStored: GateCheckSchema
+  }),
+  blockingRequirements: z.array(z.string().min(1)).default([]),
+  updatedAt: z.iso.datetime()
+});
+export type StepCompletionGate = z.infer<typeof StepCompletionGateSchema>;
+
+export const StepAmendmentSchema = z.object({
+  id: z.string().min(1),
+  runId: z.string().min(1),
+  stepId: z.string().min(1),
+  reason: z.string().min(1).max(20_000),
+  impact: z.string().min(1).max(20_000),
+  status: z.enum(["proposed", "approved", "rejected"]),
+  proposedAt: z.iso.datetime(),
+  approvedAt: z.iso.datetime().nullable(),
+  priorPlanHash: z.string().min(1),
+  amendedPlanHash: z.string().nullable()
+});
+export type StepAmendment = z.infer<typeof StepAmendmentSchema>;
+
+const SecretFreePayloadSchema = z
+  .record(z.string(), z.unknown())
+  .superRefine((payload, context) => {
+    if (!isSecretFreeSerializedValue(payload)) {
+      context.addIssue({
+        code: "custom",
+        message: "Evidence payload must be serializable and secret-free"
+      });
+    }
+  });
+
+export const StepEvidenceSchema = z.object({
+  id: z.string().min(1),
+  runId: z.string().min(1),
+  stepId: z.string().min(1),
+  kind: z.enum([
+    "scope-analysis",
+    "terminal-operation",
+    "runtime-test",
+    "restart-test",
+    "api-test",
+    "ui-test",
+    "error",
+    "correction",
+    "review",
+    "documentation",
+    "knowledge",
+    "git",
+    "completion-gate"
+  ]),
+  locator: z.string().min(1).max(10_000),
+  contentHash: z.string().min(1).nullable(),
+  summary: z.string().min(1).max(20_000),
+  payload: SecretFreePayloadSchema,
+  createdAt: z.iso.datetime()
+});
+export type StepEvidence = z.infer<typeof StepEvidenceSchema>;
+
+const RuntimeErrorCategorySchema = z.enum([
+  "startup",
+  "process_crash",
+  "console",
+  "network",
+  "api",
+  "database",
+  "ui",
+  "integration",
+  "authentication",
+  "configuration",
+  "port",
+  "security",
+  "unknown"
+]);
+
+export const StepRuntimeErrorSchema = z.object({
+  id: z.string().min(1),
+  runId: z.string().min(1),
+  stepId: z.string().min(1),
+  signature: z.string().min(1).max(1_000),
+  category: RuntimeErrorCategorySchema,
+  severity: z.enum(["warning", "error", "fatal"]),
+  message: z.string().min(1).max(20_000),
+  source: z.string().min(1).max(10_000),
+  evidencePath: z.string().min(1).max(10_000),
+  firstSeenAt: z.iso.datetime(),
+  lastSeenAt: z.iso.datetime(),
+  occurrences: z.number().int().positive(),
+  status: z.enum(["open", "resolved", "external"]),
+  resolution: z.string().min(1).max(20_000)
+});
+export type StepRuntimeError = z.infer<typeof StepRuntimeErrorSchema>;
+
+export const StepRuntimeWarningSchema = z.object({
+  signature: z.string().min(1).max(1_000),
+  category: RuntimeErrorCategorySchema,
+  message: z.string().min(1).max(20_000),
+  source: z.string().min(1).max(10_000),
+  evidencePath: z.string().min(1).max(10_000),
+  firstSeenAt: z.iso.datetime(),
+  occurrences: z.number().int().positive()
+});
+export type StepRuntimeWarning = z.infer<typeof StepRuntimeWarningSchema>;
+
+export const StepTerminalOperationSchema = z.object({
+  id: z.string().min(1),
+  runId: z.string().min(1),
+  stepId: z.string().min(1),
+  command: z.string().min(1),
+  executable: z.string().min(1),
+  safeArguments: z.array(z.string()),
+  workingDirectory: z.string().min(1),
+  startedAt: z.iso.datetime(),
+  readyAt: z.iso.datetime().nullable(),
+  completedAt: z.iso.datetime().nullable(),
+  processId: z.number().int().nonnegative().nullable(),
+  childProcessIds: z.array(z.number().int().nonnegative()),
+  exitCode: z.number().int().nullable(),
+  signal: z.string().nullable(),
+  status: z.enum(["running", "passed", "failed", "timed_out", "cancelled"]),
+  stdoutLocator: z.string().nullable(),
+  stderrLocator: z.string().nullable(),
+  combinedLogLocator: z.string().nullable(),
+  errorsDetected: z.array(StepRuntimeErrorSchema),
+  warningsDetected: z.array(StepRuntimeWarningSchema),
+  secretRedactionApplied: z.literal(true)
+});
+export type StepTerminalOperation = z.infer<typeof StepTerminalOperationSchema>;
+
+export function isSecretFreeSerializedValue(value: unknown): boolean {
+  if (!isJsonSerializable(value)) return false;
+  try {
+    const serialized = JSON.stringify(value);
+    return !/(?:gh[opsu]_[a-z0-9_-]{8,}|sk-(?:proj-)?[a-z0-9_-]{8,}|bearer\s+[a-z0-9._-]{8,}|api[_-]?key\s*[=:]\s*\S+|password\s*[=:]\s*\S+)/i.test(
+      serialized
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isJsonSerializable(value: unknown): boolean {
+  if (value === null) return true;
+  if (typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonSerializable);
+  if (typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype) return false;
+  return Object.values(value).every(isJsonSerializable);
+}
+
 export const RunSchema = z.object({
   id: z.string(),
   workspacePath: z.string(),

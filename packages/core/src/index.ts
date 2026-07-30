@@ -13,5 +13,6 @@ export * from "./routing.js";
 export * from "./run-service.js";
 export * from "./security.js";
 export * from "./state-machine.js";
+export * from "./step-plan.js";
 export * from "./workspace.js";
 export * from "./verification.js";

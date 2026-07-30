@@ -9,6 +9,14 @@ version and add event-mapping tests. State changes require an explicit graph tra
 the valid, invalid, cancellation, recovery, blocked, and rollback paths. Process changes must retain
 argument arrays, cwd, timeout, output bound, cancellation, and exit-code evidence.
 
+Plan changes must use the shared step-plan schemas and the `StepPlanService`; do not bypass the
+database repositories or write ad hoc evidence. A frozen plan requires contiguous ordered steps,
+non-cyclic dependencies, and at least one acceptance criterion per step. Completion gates require
+evidence for every applicable criterion. Keep terminal-operation arguments redacted and evidence
+payloads secret-free. Per-step evidence is initialized under the run's `.agent-runs` directory and
+must be preserved on recovery rather than overwritten. Frozen plans have both JSON and Markdown
+artifacts so the same approved execution contract is machine-readable and user-inspectable.
+
 Build outputs:
 
 ```powershell

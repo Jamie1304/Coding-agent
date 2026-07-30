@@ -20,7 +20,8 @@ file, supports explicit multi-root selection, reports trust state, and does not 
 
 - `packages/shared`: runtime schemas and IPC/API domain types.
 - `packages/database`: migrations and repositories for runs, revisions, questions, operations,
-  tests, GitHub data, deployments, and timelines.
+  tests, GitHub data, deployments, timelines, frozen step plans, completion gates, amendments, and
+  per-step evidence.
 - `packages/core`: state machine, prompt review, workspace/security inspection, process/Git/GitHub
   adapters, quality gates, deployment, orchestration, and reporting.
 - `packages/codex-provider`: stable provider contract, app-server client, and deterministic fake.
@@ -42,6 +43,21 @@ failure can only enter `ROLLING_BACK`.
 SQLite records the last durable state. Startup lists interrupted runs for recovery. Safe stages may
 be resumed after a fresh preflight; a partially running shell or Codex turn is never assumed to have
 succeeded.
+
+## Approved plans and step evidence
+
+An approved implementation plan is a versioned, Zod-validated contract bound to a run and frozen
+prompt revision. Step IDs and orders are unique and contiguous; every step has acceptance criteria,
+dependencies must exist, and dependency cycles are rejected. The database persists the plan, ordered
+step state, completion gates, amendments, terminal operations, runtime errors, and evidence. A gate
+can complete only when every applicable criterion has passed with evidence; a later step cannot start
+while any earlier step is incomplete.
+
+Run reports retain their existing flat artifacts and add a non-destructive per-step layout under
+`.agent-runs/<run-id>/steps/<order>-<step-id>`. The frozen plan is recorded as both
+`approved-step-plan.json` and a human-readable `approved-step-plan.md`. Initialization never
+overwrites evidence already written by an interrupted or restarted run. Evidence payloads are
+validated as JSON-serializable and reject token-like or credential-like content before persistence.
 
 ## Local API
 
