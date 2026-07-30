@@ -2,5 +2,7 @@ node_modules
 dist
 artifacts
 coverage
+.agent/
+.agent-runs/
 package-lock.json
 *.vsix

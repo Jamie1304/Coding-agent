@@ -20,4 +20,10 @@ describe("runnable documentation", () => {
     }
     expect(text).toContain("personal-codex-agent-vscode-0.2.0.vsix");
   });
+
+  it("excludes mutable agent runtime state from formatting checks", async () => {
+    const ignored = await readFile(join(process.cwd(), ".prettierignore"), "utf8");
+    expect(ignored).toContain(".agent/");
+    expect(ignored).toContain(".agent-runs/");
+  });
 });
