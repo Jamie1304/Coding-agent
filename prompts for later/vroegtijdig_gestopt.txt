@@ -1,0 +1,5349 @@
+# Phase 3 — Add Mandatory Step-Gated Execution, Live Runtime Testing, Project Knowledge Tracking, Documentation Maintenance, and GitHub Checkpoints
+
+You are continuing development of the existing **Personal Codex Agent**.
+
+Work from the current repository root.
+
+Your task is to inspect the existing implementation and add a mandatory execution system that forces every approved development run to proceed in strict chronological steps.
+
+For every run, the agent must:
+
+1. Turn the approved request into a detailed chronological step plan.
+2. Complete only one step at a time.
+3. Implement the step.
+4. Add or update tests for the step.
+5. run the real application from a terminal.
+6. Inspect all terminal output and runtime errors.
+7. Test the real UI, API, routes, buttons, processes, and integrations affected by the step.
+8. Stop and restart the application.
+9. Repeat the relevant runtime tests after restarting.
+10. Automatically diagnose and fix discovered errors.
+11. Repeat implementation and testing until the step is fully correct.
+12. Review the Git diff for the step.
+13. Update project documentation and project knowledge.
+14. Create a focused Git commit for the completed step.
+15. Push the commit to GitHub.
+16. Update the active pull request with progress and evidence.
+17. Only then unlock the next chronological step.
+
+The agent must never skip ahead to a later implementation step while an earlier step is incomplete, failing, untested, undocumented, uncommitted, or not pushed to GitHub.
+
+Do not merely add text instructions to the agent’s system prompt.
+
+Implement the required:
+
+* State-machine changes.
+* Step-plan format.
+* Step-gating engine.
+* Terminal runtime-testing engine.
+* Process supervisor.
+* Restart-testing system.
+* Error-detection and correction loop.
+* UI and API behavior-testing system.
+* GitHub checkpoint system.
+* Documentation-maintenance system.
+* Semantic-versioning system.
+* Changelog system.
+* README update system.
+* Project-knowledge generator.
+* Project-tree generator.
+* Function and component index.
+* Persistent evidence storage.
+* Desktop interface changes.
+* Database migrations.
+* Automated tests.
+* Documentation.
+* Upgrade path.
+
+Preserve all existing working functionality.
+
+---
+
+# 1. Mandatory Initial Audit
+
+Before modifying the repository:
+
+1. Read `AGENTS.md`.
+2. Read the root README.
+3. Read all architecture and developer documentation.
+4. Inspect the complete repository tree.
+5. Inspect the workflow state machine.
+6. Inspect the prompt-review and approval flow.
+7. Inspect the Codex provider integration.
+8. Inspect the task-routing system.
+9. Inspect the parallel-execution system.
+10. Inspect the daemon.
+11. Inspect the desktop interface.
+12. Inspect Electron process startup.
+13. Inspect the VS Code extension.
+14. Inspect Git and GitHub adapters.
+15. Inspect the test and quality-gate systems.
+16. Inspect report generation.
+17. Inspect current versioning behavior.
+18. Inspect current changelog behavior.
+19. Inspect existing project-knowledge functionality.
+20. Inspect database migrations.
+21. Run all existing tests.
+22. Run the current application.
+23. Record all baseline failures and warnings.
+24. Preserve unrelated user changes.
+
+Create:
+
+```text
+.agent-runs/<phase-3-run-id>/baseline-audit.md
+```
+
+The baseline audit must document:
+
+* Current architecture.
+* Existing reusable components.
+* Missing functionality.
+* Incomplete or placeholder functionality.
+* Current state-machine states.
+* Existing runtime-test capabilities.
+* Existing process-control capabilities.
+* Existing documentation-update behavior.
+* Existing versioning behavior.
+* Existing GitHub checkpoint behavior.
+* Required database migrations.
+* Compatibility risks.
+* Planned implementation order.
+
+Do not begin large structural changes before completing this audit.
+
+---
+
+# 2. Core Behavioral Rule
+
+Add this mandatory rule to the agent’s execution policy:
+
+> Every approved implementation request must be converted into a chronological, step-based execution plan. A step may advance only after its implementation, automated tests, real runtime tests, restart tests, diff review, documentation updates, project-knowledge updates, Git commit, Git push, and pull-request checkpoint have all completed successfully.
+
+A step must never be considered complete based only on an AI model saying that it is complete.
+
+Completion must be proven with machine-recorded evidence.
+
+---
+
+# 3. Step-Based Prompt Generation
+
+The agent’s improved prompt must always be structured into chronological implementation steps.
+
+The final prompt shown for user approval must not be one unstructured block of requirements.
+
+It must contain:
+
+1. Objective.
+2. Current repository context.
+3. Confirmed user decisions.
+4. Assumptions.
+5. Scope.
+6. Out-of-scope items.
+7. Acceptance criteria.
+8. Risk analysis.
+9. Required tests.
+10. Chronological implementation steps.
+11. Final validation requirements.
+12. Versioning expectation.
+13. Documentation requirements.
+14. Release requirements.
+15. Definition of done.
+
+## 3.1 Step schema
+
+Every implementation step must follow a structured schema similar to:
+
+```ts
+export interface ImplementationStep {
+  id: string;
+  order: number;
+  title: string;
+  objective: string;
+  reason: string;
+
+  prerequisites: string[];
+  dependencies: string[];
+
+  expectedChanges: {
+    filesToCreate: string[];
+    filesToModify: string[];
+    components: string[];
+    routes: string[];
+    APIs: string[];
+    databaseChanges: string[];
+  };
+
+  acceptanceCriteria: StepAcceptanceCriterion[];
+
+  requiredTests: {
+    unit: string[];
+    integration: string[];
+    api: string[];
+    ui: string[];
+    endToEnd: string[];
+    security: string[];
+    runtime: string[];
+    restart: string[];
+  };
+
+  runtimeValidation: {
+    startCommands: string[];
+    expectedProcesses: string[];
+    expectedPorts: string[];
+    routesToVisit: string[];
+    apiRequests: string[];
+    uiActions: string[];
+    expectedLogs: string[];
+    forbiddenErrors: string[];
+    restartCount: number;
+  };
+
+  documentationUpdates: string[];
+  projectKnowledgeUpdates: string[];
+
+  gitCheckpoint: {
+    commitType: string;
+    commitScope: string;
+    expectedCommitMessage: string;
+    pushRequired: boolean;
+    pullRequestUpdateRequired: boolean;
+  };
+
+  completionEvidence: string[];
+}
+```
+
+## 3.2 Step quality requirements
+
+Each step must:
+
+* Have one coherent objective.
+* Be independently testable.
+* Have objective completion criteria.
+* Identify expected affected areas.
+* Define required runtime behavior.
+* Define documentation consequences.
+* Define a focused Git checkpoint.
+* Be small enough to review.
+* Be large enough to represent useful progress.
+* Avoid unrelated work.
+* Appear in dependency order.
+
+Do not create meaningless steps such as:
+
+* “Write code.”
+* “Test everything.”
+* “Fix bugs.”
+* “Finish project.”
+
+Use specific steps such as:
+
+* “Add provider credential persistence and migration.”
+* “Implement the OpenAI provider adapter.”
+* “Add model-routing policy evaluation.”
+* “Add runtime restart validation to the workflow engine.”
+
+## 3.3 User approval
+
+Before execution, show the full chronological step plan.
+
+The user must be able to:
+
+* Approve all steps.
+* Reject the plan.
+* Request revisions.
+* Edit a step.
+* Reorder steps where safe.
+* Add a missing step.
+* Remove an unnecessary step.
+* View each step’s tests and completion criteria.
+
+After approval, freeze the step plan.
+
+Create:
+
+```text
+.agent-runs/<run-id>/approved-step-plan.json
+.agent-runs/<run-id>/approved-step-plan.md
+```
+
+The agent must not silently reorder, merge, remove, or add major steps after approval.
+
+When new required work is discovered:
+
+* Create a proposed amendment.
+* Explain why it is necessary.
+* Determine where it belongs chronologically.
+* Obtain user approval when it materially changes scope.
+* Record the amendment.
+
+Minor corrective work required to complete an approved step does not require a new approval.
+
+---
+
+# 4. Step-Gated State Machine
+
+Extend the state machine with explicit per-step states.
+
+Required top-level states:
+
+```text
+RUN_CREATED
+REPOSITORY_DISCOVERY
+PROMPT_REVIEW
+QUESTIONING
+PROMPT_REVISION
+STEP_PLAN_GENERATION
+AWAITING_STEP_PLAN_APPROVAL
+GITHUB_PREFLIGHT
+ISSUE_CREATION
+BRANCH_CREATION
+PULL_REQUEST_DRAFT_CREATION
+PROJECT_KNOWLEDGE_BASELINE
+EXECUTING_STEPS
+FINAL_FULL_VALIDATION
+FINAL_INDEPENDENT_REVIEW
+FINAL_DOCUMENTATION
+VERSIONING
+STAGING_DEPLOYMENT
+STAGING_VALIDATION
+MERGE
+PRODUCTION_DEPLOYMENT
+PRODUCTION_VALIDATION
+RELEASE
+FINAL_REPORTING
+SUCCESS
+BLOCKED
+FAILED
+CANCELLED
+ROLLING_BACK
+```
+
+Required per-step states:
+
+```text
+STEP_LOCKED
+STEP_READY
+STEP_CONTEXT_ANALYSIS
+STEP_IMPLEMENTATION
+STEP_AUTOMATED_TEST_CREATION
+STEP_FOCUSED_VALIDATION
+STEP_RUNTIME_START
+STEP_RUNTIME_INTERACTION
+STEP_RUNTIME_ERROR_ANALYSIS
+STEP_RUNTIME_CORRECTION
+STEP_RUNTIME_RETEST
+STEP_RESTART
+STEP_POST_RESTART_VALIDATION
+STEP_FULL_AFFECTED_VALIDATION
+STEP_DIFF_REVIEW
+STEP_INDEPENDENT_REVIEW
+STEP_DOCUMENTATION_UPDATE
+STEP_PROJECT_KNOWLEDGE_UPDATE
+STEP_GIT_COMMIT
+STEP_GIT_PUSH
+STEP_PULL_REQUEST_UPDATE
+STEP_COMPLETE
+```
+
+## 4.1 Gating rule
+
+Only one chronological implementation step may be in a writable execution state at a time unless the approved plan explicitly contains independent parallel substeps.
+
+The next main step remains `STEP_LOCKED` until the current step reaches `STEP_COMPLETE`.
+
+## 4.2 Step completion function
+
+Implement a deterministic completion function similar to:
+
+```ts
+export interface StepCompletionGate {
+  implementationComplete: boolean;
+  acceptanceCriteriaPassed: boolean;
+  requiredTestsCreated: boolean;
+  focusedTestsPassed: boolean;
+  runtimeStartPassed: boolean;
+  runtimeInteractionPassed: boolean;
+  runtimeErrorsResolved: boolean;
+  restartPassed: boolean;
+  postRestartValidationPassed: boolean;
+  affectedFullTestsPassed: boolean;
+  diffReviewed: boolean;
+  independentReviewResolved: boolean;
+  documentationUpdated: boolean;
+  projectKnowledgeUpdated: boolean;
+  commitCreated: boolean;
+  commitPushed: boolean;
+  pullRequestUpdated: boolean;
+  evidenceStored: boolean;
+}
+```
+
+The step may complete only when every applicable field is true.
+
+“Not applicable” must be explicitly justified and recorded.
+
+Do not treat missing evidence as success.
+
+---
+
+# 5. Mandatory Real Runtime Testing
+
+Add a mandatory runtime-testing stage to every implementation step.
+
+This must test the actual application or service, not only mocked code.
+
+The agent must use a real terminal or pseudo-terminal session to:
+
+1. Install dependencies when needed.
+2. Start the actual program.
+3. Observe startup output.
+4. Wait for readiness.
+5. Interact with the real UI and API.
+6. Inspect all logs.
+7. Detect errors and warnings.
+8. Stop the program.
+9. Confirm all processes stopped.
+10. Restart the program.
+11. Repeat critical behavior.
+12. Confirm state persistence and recovery.
+13. Record evidence.
+
+Call this:
+
+```text
+Manual-Style Automated Runtime Validation
+```
+
+It is “manual-style” because it performs the same real actions a developer would perform manually, while being executed and recorded automatically by the agent.
+
+---
+
+# 6. Terminal Session Engine
+
+Implement or extend a terminal-session service.
+
+It must support:
+
+* Windows PowerShell.
+* `cmd.exe` where required.
+* Executable invocation without a shell where safer.
+* Interactive processes.
+* Pseudo-terminal sessions.
+* Streaming stdout.
+* Streaming stderr.
+* Process IDs.
+* Child-process tracking.
+* Process-tree termination.
+* Timeouts.
+* Input to interactive processes.
+* Environment configuration.
+* Working-directory configuration.
+* Paths containing spaces.
+* Graceful shutdown.
+* Forced shutdown when graceful shutdown fails.
+* Exit-code recording.
+* Log persistence.
+* Secret redaction.
+
+Use a maintained PTY implementation where interactive terminal behavior is required.
+
+Do not concatenate untrusted shell commands.
+
+Prefer executable paths and argument arrays.
+
+## 6.1 Terminal evidence
+
+For every terminal operation, store:
+
+```ts
+export interface TerminalOperationEvidence {
+  operationId: string;
+  stepId: string;
+  command: string;
+  safeArguments: string[];
+  workingDirectory: string;
+
+  startedAt: string;
+  readyAt: string | null;
+  completedAt: string | null;
+
+  processId: number | null;
+  childProcessIds: number[];
+
+  exitCode: number | null;
+  signal: string | null;
+
+  stdoutLogPath: string;
+  stderrLogPath: string;
+  combinedLogPath: string;
+
+  errorsDetected: RuntimeError[];
+  warningsDetected: RuntimeWarning[];
+
+  secretRedactionApplied: boolean;
+}
+```
+
+Never expose secrets in terminal evidence.
+
+---
+
+# 7. Runtime Start Detection
+
+The agent must know when the real program is ready.
+
+Support readiness detection through:
+
+* Health endpoint.
+* Port availability.
+* Structured `ready` event.
+* Expected log expression.
+* Window creation.
+* Browser page response.
+* Electron application readiness.
+* Database connection readiness.
+* Worker readiness.
+* Project-defined health command.
+
+Do not rely only on a fixed sleep.
+
+Define configurable startup expectations in:
+
+```yaml
+# .agent/project.yml
+
+runtime:
+  install:
+    - npm ci
+
+  start:
+    command: npm run dev
+    working_directory: .
+
+  readiness:
+    timeout_ms: 120000
+    health_endpoints:
+      - http://127.0.0.1:${DAEMON_PORT}/health
+    required_log_patterns:
+      - daemon.ready
+      - renderer.ready
+
+  stop:
+    graceful_timeout_ms: 15000
+    force_timeout_ms: 10000
+
+  restart:
+    required: true
+    count: 1
+```
+
+Allow framework-specific automatic detection, but project configuration must override it.
+
+---
+
+# 8. Runtime Error Detection
+
+Inspect:
+
+* Terminal errors.
+* Terminal warnings.
+* Unhandled exceptions.
+* Unhandled promise rejections.
+* Process crashes.
+* Non-zero exit codes.
+* Browser console errors.
+* Failed network requests.
+* HTTP 4xx and 5xx responses.
+* WebSocket disconnects.
+* Database errors.
+* Migration errors.
+* Electron renderer crashes.
+* Electron main-process crashes.
+* React errors.
+* Vue or Angular runtime errors where applicable.
+* Python tracebacks.
+* Build-tool errors.
+* Missing environment configuration.
+* Port conflicts.
+* Authentication failures.
+* Integration failures.
+* Memory-related failures.
+* Child-process failures.
+* Deprecation warnings.
+* Security warnings.
+* Test failures.
+* Stale-process behavior.
+
+Create normalized errors:
+
+```ts
+export interface RuntimeError {
+  id: string;
+  signature: string;
+  category:
+    | "startup"
+    | "process_crash"
+    | "console"
+    | "network"
+    | "api"
+    | "database"
+    | "ui"
+    | "integration"
+    | "authentication"
+    | "configuration"
+    | "port"
+    | "security"
+    | "unknown";
+
+  severity: "warning" | "error" | "fatal";
+  message: string;
+  source: string;
+  evidencePath: string;
+  firstSeenAt: string;
+  occurrences: number;
+}
+```
+
+Warnings must not automatically fail a step, but each warning must be:
+
+* Classified.
+* Investigated.
+* Fixed where owned by the project and material.
+* Documented when external or harmless.
+* Recorded in the report.
+
+---
+
+# 9. Instant Error-Correction Loop
+
+When a runtime error appears, the agent must immediately pause step advancement.
+
+Use:
+
+```text
+Detect runtime error
+→ Capture complete evidence
+→ Normalize signature
+→ Identify affected component
+→ Inspect relevant code
+→ Form a root-cause hypothesis
+→ Apply focused correction
+→ Add or update regression test
+→ Run focused test
+→ Restart affected process
+→ Repeat real runtime interaction
+→ Verify error is gone
+→ Run full affected validation
+```
+
+Do not continue to later work while the current runtime error remains unresolved.
+
+## 9.1 Bounded intelligent retry
+
+Do not loop blindly.
+
+Record each correction attempt:
+
+```ts
+export interface RuntimeCorrectionAttempt {
+  errorSignature: string;
+  attemptNumber: number;
+  hypothesis: string;
+  evidence: string[];
+  filesChanged: string[];
+  regressionTestsAdded: string[];
+  result: "resolved" | "improved" | "unchanged" | "worse" | "blocked";
+}
+```
+
+When attempts are non-improving:
+
+* Stop repeating the same fix.
+* Start an independent diagnostic review.
+* Compare with prior attempts.
+* Revert harmful attempts.
+* Escalate to a stronger configured model when appropriate.
+* Mark the step blocked when an external requirement prevents resolution.
+* Never report the step as complete.
+
+---
+
+# 10. Mandatory Stop and Restart Testing
+
+Every implementation step that affects executable behavior must include at least one full restart test.
+
+The agent must:
+
+1. Start the application.
+2. Wait for readiness.
+3. Test the affected behavior.
+4. Stop the application gracefully.
+5. Verify every owned process stopped.
+6. Verify relevant ports were released.
+7. Start the application again.
+8. Wait for readiness again.
+9. Repeat the critical behavior.
+10. Confirm stored state remains correct.
+11. Confirm no duplicate services or listeners exist.
+12. Confirm no stale lock remains.
+13. Confirm no new startup warning or error appears.
+
+For changes involving persistence, additionally test:
+
+* Database reopen.
+* Session recovery.
+* Run-state recovery.
+* Configuration persistence.
+* Credential-reference persistence.
+* Workspace reconnection.
+* Interrupted-run recovery where applicable.
+
+For changes involving process management, require at least:
+
+* Normal shutdown.
+* Restart.
+* Crash recovery.
+* `Ctrl+C` or cancellation behavior.
+* Child-process cleanup.
+* Port release.
+
+---
+
+# 11. Real UI Testing
+
+When a step affects the desktop UI, web UI, Electron UI, or VS Code extension, the agent must test the actual interface.
+
+Use Playwright, Electron automation, VS Code extension testing, or another appropriate real UI harness.
+
+Test applicable behavior:
+
+* App launches.
+* Main window appears.
+* Correct page loads.
+* Buttons can be clicked.
+* Forms accept input.
+* Validation appears.
+* Modals open and close.
+* Navigation works.
+* Loading states appear.
+* Error states appear.
+* Empty states appear.
+* Success states appear.
+* Keyboard navigation works.
+* Browser or Electron console has no unexpected errors.
+* Network requests succeed.
+* Failed requests are handled.
+* Data persists after restart.
+* Responsive behavior is acceptable.
+* Screenshots match expected structure where visual tests exist.
+
+Capture:
+
+* Screenshots.
+* Video when helpful.
+* Console logs.
+* Network logs.
+* Traces.
+* Failed selector details.
+* UI state.
+
+A button is not considered working merely because it exists in source code.
+
+The agent must click it and verify its outcome.
+
+---
+
+# 12. Real API Testing
+
+When a step affects an API, the agent must start the actual server and test the real endpoint.
+
+Test applicable cases:
+
+* Successful request.
+* Invalid input.
+* Missing required input.
+* Authentication failure.
+* Authorization failure.
+* Duplicate request.
+* Not-found behavior.
+* Conflict behavior.
+* Server failure handling.
+* Correct status code.
+* Correct response schema.
+* Persistence.
+* Restart persistence.
+* Concurrency.
+* Cancellation.
+* Timeout.
+* Rate limiting.
+* Sensitive-data redaction.
+
+Store actual request and response evidence with secrets removed.
+
+---
+
+# 13. Every Step Must Update Tests
+
+Every implementation step must add or update tests.
+
+The step cannot complete when:
+
+* New behavior has no test.
+* A fixed bug has no regression test.
+* UI behavior changed but no UI test exists.
+* API behavior changed but no API test exists.
+* Persistence changed but no restart test exists.
+* Process behavior changed but no cleanup test exists.
+* A route changed but no route test exists.
+* A button changed but no interaction test exists.
+* Error handling changed but no failure test exists.
+* Security behavior changed but no security test exists.
+
+Maintain a step-specific acceptance-test matrix.
+
+Create:
+
+```text
+.agent-runs/<run-id>/steps/<step-id>/acceptance-test-matrix.json
+```
+
+---
+
+# 14. Project Knowledge System
+
+Create or expand a permanent project-knowledge system.
+
+The agent must maintain a complete, current, machine-readable and human-readable description of the project.
+
+Use:
+
+```text
+.agent/project-knowledge/
+├── README.md
+├── project-summary.md
+├── project-tree.md
+├── project-tree.json
+├── architecture.md
+├── packages-and-modules.md
+├── functions-and-classes.md
+├── functions-and-classes.json
+├── components.md
+├── routes.md
+├── api-endpoints.md
+├── data-model.md
+├── database-schema.md
+├── workflows.md
+├── state-machines.md
+├── providers-and-integrations.md
+├── commands.md
+├── configuration.md
+├── environment-variables.md
+├── dependencies.md
+├── tests.md
+├── build-and-release.md
+├── security-model.md
+├── known-limitations.md
+├── current-version.md
+├── recent-changes.md
+└── manifest.json
+```
+
+## 14.1 Project summary
+
+Describe:
+
+* What the application does.
+* Who it is for.
+* Main capabilities.
+* Main processes.
+* Main user flow.
+* Main architecture.
+* Current version.
+* Current state.
+* Known limitations.
+
+## 14.2 Complete project tree
+
+Generate the complete relevant project tree.
+
+Exclude generated or irrelevant content such as:
+
+* `node_modules`.
+* Build caches.
+* Temporary files.
+* Large generated artifacts.
+* Git internals.
+* Secret files.
+* Runtime logs not needed in the permanent index.
+
+For each file include where practical:
+
+* Path.
+* File type.
+* Purpose.
+* Owning package.
+* Main responsibilities.
+* Whether generated.
+* Source hash.
+* Last indexed commit.
+
+## 14.3 Functions and classes
+
+Generate a function and class index.
+
+For every relevant exported and significant internal symbol, record:
+
+* Name.
+* Type.
+* File path.
+* Line range.
+* Package.
+* Parameters.
+* Return type.
+* Purpose.
+* Main callers.
+* Main dependencies.
+* Side effects.
+* Tests covering it.
+* Last source hash.
+
+Do not use stale line ranges.
+
+Regenerate when source hashes change.
+
+## 14.4 Components
+
+For UI components, record:
+
+* Component name.
+* File.
+* Purpose.
+* Props.
+* State.
+* Events.
+* API dependencies.
+* Child components.
+* Screens using it.
+* Tests.
+
+## 14.5 Routes and APIs
+
+Record:
+
+* Route or endpoint.
+* Method.
+* Handler.
+* Authentication.
+* Request schema.
+* Response schema.
+* Error behavior.
+* Callers.
+* Tests.
+
+## 14.6 Workflows and state machines
+
+Document:
+
+* States.
+* Transitions.
+* Entry requirements.
+* Exit requirements.
+* Error paths.
+* Recovery paths.
+* Tests.
+
+## 14.7 Test inventory
+
+Record:
+
+* Test file.
+* Test type.
+* Component covered.
+* Acceptance criteria covered.
+* Runtime scenario covered.
+* Last result.
+* Known gaps.
+
+## 14.8 Manifest
+
+Create a machine-readable manifest:
+
+```ts
+export interface ProjectKnowledgeManifest {
+  projectName: string;
+  version: string;
+  generatedAt: string;
+  commitSha: string;
+  sourceTreeHash: string;
+  generatorVersion: string;
+  filesIndexed: number;
+  symbolsIndexed: number;
+  routesIndexed: number;
+  testsIndexed: number;
+  staleEntries: number;
+}
+```
+
+---
+
+# 15. Automatic Project Knowledge Updates
+
+Update the project knowledge:
+
+1. Before implementation to establish a baseline.
+2. After every completed chronological step.
+3. After conflict resolution.
+4. After final validation.
+5. After merge.
+6. After release.
+
+Do not regenerate the entire knowledge base unnecessarily when incremental updates are safe.
+
+However, always run a final complete validation to detect stale entries.
+
+A step cannot complete when:
+
+* Changed files are missing from the project tree.
+* Added functions are missing from the symbol index.
+* Removed functions remain as active entries.
+* New routes are undocumented.
+* New tests are missing from the test inventory.
+* Version data is stale.
+* Architecture documentation contradicts the code.
+
+Add commands such as:
+
+```powershell
+npm run knowledge:update
+npm run knowledge:full
+npm run knowledge:validate
+npm run knowledge:check
+```
+
+These commands must return correct exit codes.
+
+---
+
+# 16. Mandatory Documentation Updates
+
+Every successful implementation run must update the relevant documentation.
+
+At minimum, review and update:
+
+* `README.md`.
+* `CHANGELOG.md`.
+* Version files.
+* Package manifests.
+* Lockfile where applicable.
+* Architecture documentation.
+* Setup documentation.
+* User documentation.
+* Developer documentation.
+* API documentation.
+* Configuration examples.
+* `.env.example`.
+* Project knowledge.
+* Troubleshooting documentation.
+* Release notes.
+
+## 16.1 README requirement
+
+Every successful run must update a controlled README section:
+
+```markdown
+## Current Version
+
+Version: x.y.z
+
+## Recent Changes
+
+- Short summary of the latest completed release.
+```
+
+Do not rewrite unrelated README content unnecessarily.
+
+When setup, commands, functionality, or architecture changes, update the corresponding README sections.
+
+## 16.2 Changelog requirement
+
+Use a consistent changelog format.
+
+Include:
+
+* Added.
+* Changed.
+* Fixed.
+* Security.
+* Deprecated.
+* Removed.
+* Migration notes.
+* Upgrade notes.
+
+Every successful run must add a dated version entry.
+
+Do not leave all changes indefinitely under “Unreleased” after release.
+
+## 16.3 Version files
+
+Create or maintain a root:
+
+```text
+VERSION
+```
+
+Synchronize applicable versions in:
+
+* Root `package.json`.
+* Application package manifests.
+* Extension manifest.
+* Desktop package metadata.
+* Release artifacts.
+* Project knowledge.
+* README.
+* Changelog.
+
+Add a test that detects version mismatches.
+
+---
+
+# 17. Semantic Versioning Policy
+
+Every successful approved implementation run must produce a version decision.
+
+Use semantic versioning:
+
+* Patch: backward-compatible bug fix, documentation correction tied to a release, internal improvement, or maintenance change.
+* Minor: backward-compatible user-visible feature.
+* Major: breaking change.
+
+For pre-1.0 projects, document the project’s chosen interpretation and apply it consistently.
+
+Create a structured version decision:
+
+```ts
+export interface VersionDecision {
+  previousVersion: string;
+  nextVersion: string;
+  changeType: "patch" | "minor" | "major";
+  reasons: string[];
+  breakingChanges: string[];
+  migrationRequired: boolean;
+}
+```
+
+The version must not be finalized before implementation and tests are complete.
+
+Use this sequence:
+
+1. Predict version impact during planning.
+2. Complete implementation.
+3. Validate actual impact.
+4. Confirm the version decision.
+5. Update version files.
+6. Update changelog.
+7. Update README.
+8. Update project knowledge.
+9. Commit version and release documentation.
+10. Push.
+11. Tag after merge and successful release validation.
+
+---
+
+# 18. Mandatory GitHub Workflow
+
+For execution mode, GitHub is required.
+
+Before changing project files, verify:
+
+* Git repository.
+* GitHub remote.
+* GitHub authentication.
+* Permission to create issues.
+* Permission to push branches.
+* Permission to create pull requests.
+* Default branch.
+* Branch protection.
+* Required checks.
+
+If GitHub is not configured, block before implementation and show exact setup instructions.
+
+Do not begin project modification and then discover at the end that work cannot be pushed.
+
+## 18.1 One issue per approved run
+
+Create one GitHub issue containing:
+
+* Approved request.
+* Step plan.
+* Acceptance criteria.
+* Risks.
+* Test requirements.
+* Documentation requirements.
+* Version expectation.
+* Definition of done.
+
+## 18.2 One implementation branch
+
+Create one main branch for the run:
+
+```text
+feature/<issue>-<description>
+fix/<issue>-<description>
+refactor/<issue>-<description>
+security/<issue>-<description>
+```
+
+Create child branches or worktrees only for approved parallel substeps.
+
+## 18.3 Draft pull request before implementation steps
+
+After branch creation, open a draft pull request.
+
+The pull request must include:
+
+* Issue link.
+* Approved step plan.
+* Step checklist.
+* Test checklist.
+* Runtime-validation checklist.
+* Documentation checklist.
+* Versioning checklist.
+* Deployment checklist.
+
+## 18.4 Commit and push after every step
+
+Every completed chronological step must end with:
+
+1. Final step diff review.
+2. Step documentation update.
+3. Step knowledge update.
+4. Focused commit.
+5. Push.
+6. Pull-request update.
+7. GitHub remote verification.
+
+Only then may the next step unlock.
+
+Commit examples:
+
+```text
+feat(provider): implement secure credential storage
+test(provider): add credential restart validation
+docs(project): update provider architecture knowledge
+```
+
+Prefer one coherent commit per step, but allow multiple focused commits when the step has clearly separable code, tests, and documentation.
+
+Do not create meaningless commits such as:
+
+* “updates.”
+* “fix stuff.”
+* “work.”
+* “changes.”
+
+## 18.5 Pull-request progress
+
+After each step, update the pull request with:
+
+* Completed step.
+* Commit SHA.
+* Files changed.
+* Tests run.
+* Runtime test result.
+* Restart test result.
+* Errors discovered and fixed.
+* Documentation updated.
+* Project knowledge updated.
+* Remaining steps.
+
+## 18.6 Remote verification
+
+After pushing, verify:
+
+* Remote branch contains the commit.
+* Pull request references the commit.
+* Expected files are present remotely.
+* GitHub Actions started where configured.
+
+A local commit without a successful push does not complete the step.
+
+---
+
+# 19. Diff Review Per Step
+
+Before committing each step, inspect the complete step diff.
+
+Check:
+
+* Only expected files changed.
+* No secrets.
+* No debug code.
+* No temporary files.
+* No disabled tests.
+* No weakened assertions.
+* No unexplained lockfile changes.
+* No unrelated formatting.
+* No hard-coded personal paths.
+* No unsafe commands.
+* No hidden scope changes.
+* No stale comments.
+* No required TODOs.
+* No generated artifacts accidentally committed.
+* Documentation matches behavior.
+* Project knowledge matches behavior.
+
+Use an independent reviewer for:
+
+* Security-sensitive steps.
+* Large steps.
+* Architecture changes.
+* Database migrations.
+* Process-management changes.
+* Deployment changes.
+* Steps above a configured risk threshold.
+
+---
+
+# 20. Step Evidence Directory
+
+Create:
+
+```text
+.agent-runs/<run-id>/steps/
+├── 001-<step-name>/
+│   ├── step-definition.json
+│   ├── context-analysis.md
+│   ├── implementation-summary.md
+│   ├── changed-files.md
+│   ├── terminal-operations.jsonl
+│   ├── runtime-start.log
+│   ├── runtime-errors.json
+│   ├── correction-attempts.json
+│   ├── focused-tests.md
+│   ├── runtime-tests.md
+│   ├── restart-tests.md
+│   ├── ui-tests.md
+│   ├── api-tests.md
+│   ├── diff-review.md
+│   ├── independent-review.md
+│   ├── documentation-updates.md
+│   ├── knowledge-updates.md
+│   ├── git-checkpoint.json
+│   └── completion-gate.json
+└── 002-<step-name>/
+```
+
+The desktop interface must allow the user to inspect these artifacts.
+
+---
+
+# 21. Desktop Interface Changes
+
+Add a chronological execution view.
+
+## 21.1 Step timeline
+
+Show every approved step with:
+
+* Step number.
+* Title.
+* Objective.
+* Dependencies.
+* Current state.
+* Completion percentage.
+* Model assigned.
+* Files affected.
+* Test status.
+* Runtime status.
+* Restart status.
+* Documentation status.
+* Knowledge status.
+* Commit status.
+* Push status.
+* Pull-request status.
+
+Use statuses:
+
+```text
+Locked
+Ready
+Analyzing
+Implementing
+Testing
+Starting application
+Runtime testing
+Fixing runtime error
+Restarting
+Revalidating
+Reviewing diff
+Updating documentation
+Updating project knowledge
+Committing
+Pushing
+Updating pull request
+Complete
+Blocked
+Failed
+```
+
+## 21.2 Active terminal view
+
+Show:
+
+* Current command.
+* Working directory.
+* Live safe output.
+* Process status.
+* Detected errors.
+* Detected warnings.
+* Restart count.
+* Related artifacts.
+
+Redact secrets before rendering.
+
+## 21.3 Runtime testing view
+
+Show:
+
+* Application start status.
+* Services.
+* Ports.
+* Routes tested.
+* API requests tested.
+* UI actions completed.
+* Console errors.
+* Network errors.
+* Restart result.
+* Screenshots.
+* Test evidence.
+
+## 21.4 Gate details
+
+For each step, show the complete gate checklist.
+
+A locked next step must visibly explain which current requirement remains incomplete.
+
+## 21.5 GitHub status
+
+Show:
+
+* Issue.
+* Branch.
+* Draft pull request.
+* Last pushed commit.
+* Per-step commits.
+* GitHub Actions.
+* Remote verification.
+* Merge readiness.
+
+---
+
+# 22. Project Configuration
+
+Extend:
+
+```text
+.agent/project.yml
+```
+
+Example:
+
+```yaml
+execution:
+  chronological_steps: true
+  require_step_approval: false
+  freeze_approved_plan: true
+  allow_parallel_substeps: true
+  maximum_parallel_writers: 1
+
+step_gates:
+  require_automated_tests: true
+  require_runtime_start: true
+  require_runtime_interaction: true
+  require_restart_test: true
+  require_diff_review: true
+  require_documentation_update: true
+  require_project_knowledge_update: true
+  require_commit: true
+  require_push: true
+  require_pull_request_update: true
+
+runtime:
+  install:
+    - npm ci
+  start:
+    command: npm run dev
+  readiness:
+    timeout_ms: 120000
+  restart_count: 1
+  detect_console_errors: true
+  detect_network_errors: true
+  verify_port_cleanup: true
+
+github:
+  required_for_execution: true
+  create_issue: true
+  create_draft_pull_request: true
+  push_after_each_step: true
+  update_pull_request_after_each_step: true
+  merge_strategy: squash
+
+documentation:
+  always_update_readme: true
+  always_update_changelog: true
+  always_update_project_knowledge: true
+  always_update_version: true
+  validate_documented_commands: true
+
+project_knowledge:
+  enabled: true
+  update_after_each_step: true
+  full_validation_before_release: true
+  include_function_index: true
+  include_route_index: true
+  include_test_index: true
+
+versioning:
+  strategy: semver
+  version_file: VERSION
+  synchronize_package_versions: true
+```
+
+Validate configuration with a runtime schema.
+
+Provide an in-app editor.
+
+---
+
+# 23. Parallel Execution Constraints
+
+The existing multi-model system may perform independent analysis tasks in parallel.
+
+However, chronological main steps remain ordered.
+
+Allowed parallel work within a step:
+
+* Read-only repository analysis.
+* Security review.
+* Test planning.
+* Documentation impact analysis.
+* Independent verification.
+* Separate non-overlapping subcomponents with isolated worktrees.
+
+Forbidden:
+
+* Starting main step 3 before main step 2 is complete.
+* Pushing later-step work before the current step checkpoint.
+* Multiple workers editing the same files.
+* Multiple workers changing the version.
+* Multiple workers changing the changelog.
+* Multiple workers changing the same lockfile.
+* Parallel merge or release operations.
+
+The integration coordinator must combine substep work before completing the main step.
+
+---
+
+# 24. Final Full Validation
+
+After every chronological step is complete and pushed, perform a complete final validation.
+
+This does not replace per-step validation.
+
+Run:
+
+1. Clean dependency installation.
+2. Project-knowledge full regeneration.
+3. Project-knowledge validation.
+4. Formatting.
+5. Linting.
+6. Type checking.
+7. Unit tests.
+8. Integration tests.
+9. API tests.
+10. UI tests.
+11. End-to-end tests.
+12. Security tests.
+13. Dependency audit.
+14. Build.
+15. Packaging.
+16. Application start.
+17. Complete runtime smoke test.
+18. Full stop.
+19. Process-cleanup verification.
+20. Application restart.
+21. Complete post-restart smoke test.
+22. Database reopen.
+23. Run recovery.
+24. VS Code extension connection.
+25. Git status.
+26. Complete diff review.
+27. Independent final review.
+28. Documentation validation.
+29. Version consistency validation.
+30. Changelog validation.
+31. README validation.
+32. Project-knowledge freshness validation.
+
+Any failure reopens the earliest responsible step.
+
+Do not create an unstructured final fix that bypasses step history.
+
+---
+
+# 25. Documentation Validation
+
+Create automated checks that verify:
+
+* Every documented command exists.
+* Every documented script exists.
+* README version equals `VERSION`.
+* Package versions equal `VERSION`.
+* Extension version equals `VERSION`.
+* Changelog contains the current version.
+* Current-version project knowledge equals `VERSION`.
+* New routes appear in API documentation.
+* New configuration fields appear in configuration documentation.
+* New environment variables appear in `.env.example`.
+* Removed commands are no longer documented.
+* Project-tree entries match real files.
+* Symbol-index entries match current source hashes.
+* No secret appears in documentation.
+
+Fail the relevant step when documentation is stale.
+
+---
+
+# 26. Release Sequence
+
+Only after final validation passes:
+
+1. Finalize semantic version.
+2. Update `VERSION`.
+3. Synchronize package versions.
+4. Update README.
+5. Update changelog.
+6. Generate release notes.
+7. Update project knowledge.
+8. Commit release metadata.
+9. Push release commit.
+10. Wait for GitHub Actions.
+11. Resolve any CI failure.
+12. Deploy to staging when configured.
+13. Run staging runtime and restart tests.
+14. Mark pull request ready.
+15. Merge using configured strategy.
+16. Verify default branch.
+17. Deploy production when configured.
+18. Run production smoke tests.
+19. Roll back when production validation fails.
+20. Create Git tag.
+21. Create GitHub release.
+22. Close issue.
+23. Generate final report.
+
+Do not tag or release a failed deployment as successful.
+
+---
+
+# 27. Tests for This Feature
+
+Add comprehensive automated tests.
+
+## 27.1 Step-plan tests
+
+Test:
+
+* Prompt becomes chronological steps.
+* Steps have dependencies.
+* Steps have acceptance criteria.
+* Steps have runtime tests.
+* Steps have Git checkpoints.
+* Invalid step order is rejected.
+* Cyclic dependencies are rejected.
+* Approved plan is frozen.
+* Material amendment requires approval.
+* Minor correction remains inside current step.
+
+## 27.2 State-machine tests
+
+Test:
+
+* Next step remains locked.
+* Current step unlocks correctly.
+* Implementation cannot skip testing.
+* Testing cannot skip runtime testing.
+* Runtime testing cannot skip restart testing.
+* Restart cannot skip diff review.
+* Diff review cannot skip documentation.
+* Documentation cannot skip knowledge update.
+* Knowledge update cannot skip commit.
+* Commit cannot skip push.
+* Push cannot skip pull-request update.
+* Only completed gate unlocks next step.
+* Restart recovery preserves current step.
+
+## 27.3 Terminal tests
+
+Test:
+
+* Program start.
+* Readiness.
+* Output streaming.
+* Error detection.
+* Warning detection.
+* Timeout.
+* Graceful stop.
+* Forced stop.
+* Child-process cleanup.
+* Restart.
+* Port release.
+* Paths containing spaces.
+* Secret redaction.
+
+## 27.4 Runtime correction tests
+
+Test:
+
+* Runtime error pauses progression.
+* Root-cause attempt recorded.
+* Regression test required.
+* Successful correction resumes validation.
+* Identical failed fix is not repeated endlessly.
+* Independent diagnostic review starts.
+* External blocker leaves step incomplete.
+
+## 27.5 UI runtime tests
+
+Test:
+
+* Real button click.
+* Form submission.
+* Navigation.
+* API response.
+* Console-error capture.
+* Network-error capture.
+* Screenshot artifact.
+* Restart persistence.
+
+## 27.6 Project-knowledge tests
+
+Test:
+
+* Project tree generation.
+* New file detection.
+* Deleted file removal.
+* Function index.
+* Changed source hash.
+* Route index.
+* Test inventory.
+* Stale-entry detection.
+* Full validation.
+* Incremental update.
+* No secret indexing.
+
+## 27.7 Documentation tests
+
+Test:
+
+* README updated.
+* Changelog updated.
+* Version synchronized.
+* Commands valid.
+* Configuration documented.
+* Current-version knowledge updated.
+* Missing documentation blocks step completion.
+
+## 27.8 GitHub checkpoint tests
+
+Use a fake GitHub adapter.
+
+Test:
+
+* Issue created before implementation.
+* Branch created.
+* Draft pull request created.
+* Commit after step.
+* Push after step.
+* Remote commit verified.
+* Pull request updated.
+* Push failure blocks next step.
+* GitHub outage blocks safely.
+* No later step starts after push failure.
+
+## 27.9 Migration tests
+
+Test upgrading the existing database.
+
+Ensure:
+
+* Existing runs remain available.
+* Existing approved prompts remain valid.
+* New step state can be added.
+* Existing project settings receive safe defaults.
+* Existing reports remain readable.
+* No run is falsely marked complete.
+
+---
+
+# 28. Backward Compatibility
+
+Preserve:
+
+* Existing prompt review.
+* Existing approval behavior.
+* Existing AI provider setup.
+* Existing model routing.
+* Existing parallel analysis.
+* Existing Codex execution.
+* Existing Git and GitHub adapters.
+* Existing report history.
+* Existing database content.
+* Existing project configuration where possible.
+* Existing VS Code extension behavior.
+* Existing desktop startup.
+* Existing packaging.
+
+Migrate existing project configuration with safe defaults.
+
+Do not silently enable production deployment.
+
+---
+
+# 29. Required Implementation Order
+
+Implement this feature in the following chronological milestones.
+
+## Milestone 1 — Audit and baseline
+
+* Inspect repository.
+* Run tests.
+* Run application.
+* Record baseline.
+* Create implementation issue.
+* Create branch.
+* Create draft pull request.
+
+## Milestone 2 — Step schemas and persistence
+
+* Step-plan schemas.
+* Completion-gate schemas.
+* Database migration.
+* Persistent evidence.
+* Tests.
+* Runtime validation.
+* Documentation.
+* Project knowledge.
+* Commit and push.
+
+## Milestone 3 — Step-gated state machine
+
+* New states.
+* Transitions.
+* Locking.
+* Recovery.
+* Tests.
+* Runtime validation.
+* Documentation.
+* Project knowledge.
+* Commit and push.
+
+## Milestone 4 — Terminal and process engine
+
+* PTY.
+* Streaming logs.
+* Process tracking.
+* Stop and restart.
+* Port cleanup.
+* Tests.
+* Real runtime validation.
+* Documentation.
+* Project knowledge.
+* Commit and push.
+
+## Milestone 5 — Runtime error correction
+
+* Error normalization.
+* Instant correction loop.
+* Retry limits.
+* Independent diagnostics.
+* Tests.
+* Real failure simulation.
+* Documentation.
+* Project knowledge.
+* Commit and push.
+
+## Milestone 6 — UI and API behavior testing
+
+* Playwright or equivalent.
+* Electron UI tests.
+* API runtime tests.
+* Console and network capture.
+* Tests.
+* Runtime validation.
+* Documentation.
+* Project knowledge.
+* Commit and push.
+
+## Milestone 7 — Project knowledge system
+
+* Tree generator.
+* Symbol index.
+* Route index.
+* Test index.
+* Incremental updates.
+* Full validation.
+* Tests.
+* Runtime validation.
+* Documentation.
+* Commit and push.
+
+## Milestone 8 — Documentation and version system
+
+* `VERSION`.
+* Version synchronization.
+* Changelog enforcement.
+* README enforcement.
+* Documentation validation.
+* Tests.
+* Runtime validation.
+* Project knowledge.
+* Commit and push.
+
+## Milestone 9 — GitHub per-step checkpoints
+
+* Issue.
+* Branch.
+* Draft pull request.
+* Per-step commit.
+* Push.
+* Remote verification.
+* Pull-request updates.
+* Tests.
+* Runtime validation.
+* Documentation.
+* Project knowledge.
+* Commit and push.
+
+## Milestone 10 — Desktop execution timeline
+
+* Step timeline.
+* Active terminal.
+* Runtime evidence.
+* Gate details.
+* GitHub status.
+* Tests.
+* Runtime validation.
+* Restart validation.
+* Documentation.
+* Project knowledge.
+* Commit and push.
+
+## Milestone 11 — Complete integration
+
+* Prompt-to-step conversion.
+* Approval.
+* Execution.
+* Runtime testing.
+* Restart testing.
+* Error correction.
+* Documentation.
+* Knowledge.
+* Commit.
+* Push.
+* Pull-request update.
+* Next-step unlock.
+* Tests.
+* Commit and push.
+
+## Milestone 12 — Final validation and release
+
+* Clean install.
+* Complete test suite.
+* Complete live runtime test.
+* Restart.
+* Full documentation validation.
+* Full knowledge validation.
+* Final review.
+* Version.
+* Changelog.
+* README.
+* Release notes.
+* CI.
+* Merge.
+* Tag.
+* Release.
+* Final report.
+
+Do not advance from a milestone until its own completion gate passes and its commit is pushed.
+
+---
+
+# 30. Definition of Done
+
+You may report this Phase 3 implementation as successful only when:
+
+* Every approved run is converted into chronological steps.
+* Every step has objective acceptance criteria.
+* Every step has required tests.
+* Every executable step starts the actual application.
+* Terminal output is captured.
+* Runtime errors are detected.
+* Runtime errors pause advancement.
+* The agent attempts focused corrections.
+* Regression tests are added.
+* The application is stopped.
+* Owned processes are verified stopped.
+* Ports are released.
+* The application is restarted.
+* Critical behavior is tested again.
+* UI changes are tested through real interactions.
+* API changes are tested against the running API.
+* The diff is reviewed per step.
+* Documentation is updated per step.
+* Project knowledge is updated per step.
+* A focused commit is created per step.
+* The commit is pushed.
+* The pull request is updated.
+* The next step remains locked until all requirements pass.
+* README is updated for every successful run.
+* Changelog is updated for every successful run.
+* Version is updated for every successful run.
+* Package versions remain synchronized.
+* The project tree is current.
+* The symbol index is current.
+* Routes and APIs are current.
+* Test inventory is current.
+* Existing workflows continue to work.
+* Database migration passes.
+* Automated tests pass.
+* Integration tests pass.
+* End-to-end tests pass.
+* Runtime tests pass.
+* Restart tests pass.
+* GitHub checkpoint tests pass.
+* Build passes.
+* Packaging passes.
+* Final project-knowledge validation passes.
+* Final documentation validation passes.
+* GitHub Actions pass.
+* The release process works.
+* An evidence-based final report is generated.
+
+A step with a failing test, runtime error, stale documentation, stale project knowledge, uncommitted work, failed push, or missing pull-request update is not complete.
+
+Do not mark blocked work as successful.
+
+Do not fabricate terminal execution.
+
+Do not fabricate test results.
+
+Do not fabricate GitHub pushes.
+
+Do not claim a UI control works without interacting with it.
+
+Do not claim the program restarts correctly without performing the restart.
+
+Begin now.
+
+First audit the current repository.
+
+Then run the current application and test suite.
+
+Then create the GitHub issue, implementation branch, and draft pull request.
+
+Then implement the milestones strictly in chronological order.
+
+For every milestone:
+
+* Implement.
+* Test.
+* Start the application.
+* Interact with the real behavior.
+* Inspect all output.
+* Fix every relevant error.
+* Stop.
+* Restart.
+* Retest.
+* Review the diff.
+* Update documentation.
+* Update project knowledge.
+* Commit.
+* Push.
+* Update the pull request.
+* Verify the remote checkpoint.
+
+Only after that may you proceed to the next milestone.
+
+Finish with the complete final validation, version update, changelog, README, release, and evidence-based final report.
+
+
+You stopped after 1h 13m 25s
+
+
+
+
+The Phase 3 plan is now frozen. I’m recording the approved 12-step plan and refreshing the baseline against the current Git/GitHub state; the existing deletions remain outside this run’s scope.
+
+
+
+
+Edited filesCreated file
+
+approved-step-plan.json+213-0
+
+
+
+
+
+
+
+
+Created file
+
+approved-step-plan.md+26-0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The approved plan artifacts are recorded. I’m completing Step 001 only: rerunning the baseline suite and environment diagnostics before starting an owned runtime session and writing the baseline report.
+
+
+
+
+Ran commandsRan npm.cmd test
+
+
+
+
+Ran npm.cmd run doctor -- --json
+
+
+
+
+Ran Test-Path '.agent\dev-run.lock.json'; Get-Process -Name electron -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,Path,StartTime | Format-Table -AutoSize | Out-String -Width 240; Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in 5173,5174,52311 } | Select-Object LocalAddress,LocalPort,OwningProcess | Format-Table -AutoSize | Out-String -Width 240
+
+
+
+
+Ran Get-Content -Raw '.agent\dev-run.lock.json'
+
+
+
+
+
+
+
+
+
+The application is already running under an existing development lock (PID 23072). I’ll validate its daemon and renderer without stopping or replacing this pre-existing session; its restart requirement is explicitly not applicable to the audit checkpoint.
+
+
+
+
+Edited files, ran commandsRan Get-Process -Id 23072 | Select-Object Id,ProcessName,Path,StartTime | Format-List | Out-String -Width 240; try { Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:52486/health' -TimeoutSec 10 | Select-Object StatusCode,Content | Format-List | Out-String -Width 240 } catch { $_.Exception.Message }; try { Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:5173/' -TimeoutSec 10 | Select-Object StatusCode,Content | Format-List | Out-String -Width 240 } catch { $_.Exception.Message }
+
+
+
+
+Ran Get-Content -Raw '.gitignore'; git check-ignore -v '.agent-runs/phase-3-20260730/approved-step-plan.json'; git status --short --branch
+
+
+
+
+Created file
+
+baseline-audit.md+74-0
+
+
+
+
+
+
+
+
+Created file
+
+acceptance-test-matrix.json+8-0
+
+
+
+
+
+
+
+
+Created file
+
+api-tests.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+changed-files.md+8-0
+
+
+
+
+
+
+
+
+Created file
+
+completion-gate.json+22-0
+
+
+
+
+
+
+
+
+Created file
+
+context-analysis.md+5-0
+
+
+
+
+
+
+
+
+Created file
+
+correction-attempts.json+1-0
+
+
+
+
+
+
+
+
+Created file
+
+diff-review.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+documentation-updates.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+focused-tests.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+git-checkpoint.json+9-0
+
+
+
+
+
+
+
+
+Created file
+
+implementation-summary.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+independent-review.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+knowledge-updates.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+baseline-doctor.combined.log+1-0
+
+
+
+
+
+
+
+
+Created file
+
+baseline-doctor.stderr.log+1-0
+
+
+
+
+
+
+
+
+Created file
+
+baseline-doctor.stdout.log+1-0
+
+
+
+
+
+
+
+
+Created file
+
+baseline-tests.combined.log+1-0
+
+
+
+
+
+
+
+
+Created file
+
+baseline-tests.stderr.log+1-0
+
+
+
+
+
+
+
+
+Created file
+
+baseline-tests.stdout.log+1-0
+
+
+
+
+
+
+
+
+Created file
+
+restart-tests.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+runtime-errors.json+31-0
+
+
+
+
+
+
+
+
+Created file
+
+runtime-start.log+1-0
+
+
+
+
+
+
+
+
+Created file
+
+runtime-tests.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+step-definition.json+8-0
+
+
+
+
+
+
+
+
+Created file
+
+terminal-operations.jsonl+3-0
+
+
+
+
+
+
+
+
+Created file
+
+ui-tests.md+3-0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Step 001’s required evidence, audit, and validation records are complete. The only tracked changes remain the user’s development-lock update and test.txt deletion; run artifacts are intentionally ignored. I’m reviewing that diff before making the focused checkpoint commit.
+
+
+
+
+Ran commandsRan git status --short --branch; git diff --check; git diff --stat; git diff -- '.agent/dev-run.lock.json' 'test.txt'
+
+
+
+
+Ran git diff --cached --check; git diff --cached --stat; git diff --cached -- '.agent/dev-run.lock.json' 'test.txt'
+
+
+
+
+
+
+
+
+
+The user’s unrelated changes are already staged, so a normal commit would incorrectly include them. I’ll create the required empty-but-purposeful Git checkpoint directly from HEAD’s tree, leaving both the working tree and index untouched.
+
+
+
+
+Ran commandsRan git commit-tree 'HEAD^{tree}' -p HEAD -m 'chore(phase3): establish approved execution checkpoint'
+
+
+
+
+Ran git update-ref 'refs/heads/feature/1-phase-3-step-gates' '6e9148d7755ef5264324613ad6bf51c6534ac271' 'ee5eb43d18e648e8445d3e6bbb1c8154dff21357'; git log -1 --oneline; git status --short --branch
+
+
+
+
+
+
+
+
+
+The Phase 3 checkpoint commit is now on the feature branch and the staged user changes remain unstaged from this commit. The live development supervisor appears to have removed its own lock during this check; I have not altered that file or test.txt.
+
+
+
+
+Ran git push origin 'feature/1-phase-3-step-gates'
+
+
+
+
+The checkpoint is pushed as 6e9148d. I’ll create the draft PR now, then verify the remote branch and PR reference before unlocking Step 002.
+
+
+
+
+Ran commandsRan $body = @'
+Closes #1
+
+## Phase 3 execution plan
+- [x] 1. Audit and baseline
+- [ ] 2. Step schemas, persistence, and evidence
+- [ ] 3. Step-gated state machine and recovery
+- [ ] 4. Terminal and process engine
+- [ ] 5. Runtime error-correction loop
+- [ ] 6. Real UI and API behavior testing
+- [ ] 7. Project-knowledge system
+- [ ] 8. Documentation and semantic-version system
+- [ ] 9. GitHub per-step checkpoints
+- [ ] 10. Desktop execution timeline
+- [ ] 11. Complete prompt-to-step integration
+- [ ] 12. Final validation and release
+
+## Step 001 evidence
+- Baseline suite: 23 files / 70 tests passed.
+- Doctor: 10 pass, 1 non-blocking warning, 0 failures.
+- Existing live daemon and renderer returned HTTP 200.
+- Approved plan and audit evidence remain local under ignored `.agent-runs/phase-3-20260730` by repository policy.
+
+## Required step gate
+Each chronological step requires recorded implementation, automated and focused tests, real runtime and restart validation, error resolution, diff review, documentation, project knowledge, focused commit, remote push, pull-request update, and deterministic evidence before the next step unlocks.
+'@
+& 'C:\Program Files\GitHub CLI\gh.exe' pr create --repo 'Jamie1304/Coding-agent' --draft --base 'master' --head 'feature/1-phase-3-step-gates' --title 'feat: mandatory step-gated execution' --body $body
+
+
+
+
+Ran git ls-remote origin 'refs/heads/feature/1-phase-3-step-gates'
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' pr view 2 --repo 'Jamie1304/Coding-agent' --json number,url,state,isDraft,headRefName,headRefOid,baseRefName,title
+
+
+
+
+
+
+
+
+
+Remote verification confirms draft PR #2 references the pushed checkpoint. I’m adding the required Step 001 progress/evidence update before advancing.
+
+
+
+
+Ran commandsRan $comment = @'
+## Step 001 complete — audit and GitHub baseline
+
+- Commit: `6e9148d7755ef5264324613ad6bf51c6534ac271`
+- Product files: none; approved-plan and audit evidence are retained locally under ignored `.agent-runs/phase-3-20260730`.
+- Tests: `npm.cmd test` — 23 files, 70 tests passed.
+- Environment: `npm.cmd run doctor -- --json` — 10 pass, 1 non-blocking PATH warning, 0 failures.
+- Runtime: existing daemon health and Vite renderer returned HTTP 200; Electron processes were present.
+- Restart: not applicable to this audit-only step; the observed session predated the step and was not owned or stopped.
+- Errors: none; GitHub detailed branch-protection endpoint is unavailable for this private plan, while the branch reports unprotected.
+- Documentation: frozen plan and baseline audit recorded.
+- Project knowledge: explicitly deferred to Step 007.
+- Remote verification: branch and PR head both resolve to `6e9148d`.
+
+Remaining steps: 002 schemas/persistence, 003 state machine, 004 terminal/process, 005 correction, 006 UI/API validation, 007 knowledge, 008 docs/version, 009 GitHub gates, 010 desktop, 011 integration, 012 final validation/release.
+'@
+& 'C:\Program Files\GitHub CLI\gh.exe' pr comment 2 --repo 'Jamie1304/Coding-agent' --body $comment
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+
+
+
+
+
+GitHub Actions started, but the Ubuntu validation job has failed. Step 001 remains locked; I’m fetching the failed job log now and will diagnose it before considering the checkpoint complete.
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' run view 30543519248 --repo 'Jamie1304/Coding-agent' --log-failed
+
+
+
+
+The failure is project-owned: the mutable .agent/dev-run.lock.json is tracked and checked by Prettier, so ordinary development startup can make CI fail. I’ll exclude the runtime-state directory from formatting and add a regression test for that configuration.
+
+
+
+
+Edited files, ran a commandRan Get-Content '.prettierignore'; Get-Content 'tests\unit\documentation.test.ts'
+
+
+
+
+Edited file
+
+.prettierignore+2-0
+
+
+
+
+
+
+
+
+Edited file
+
+documentation.test.ts+6-0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The targeted correction and regression test are in place. I’ll run the focused test and the actual formatting gate now; a clean result will prove the CI failure no longer depends on a live development lock.
+
+
+
+
+Ran commandsRan npm.cmd run format:check
+
+
+
+
+Ran npx.cmd vitest run tests/unit/documentation.test.ts --reporter=verbose
+
+
+
+
+Ran npm.cmd test
+
+
+
+
+
+
+
+
+
+The regression is resolved locally: focused validation, formatting, and the full suite all pass (71 tests). I’m reviewing only the two owned files; the staged user changes remain excluded.
+
+
+
+
+Ran commandsRan git diff --check; git diff -- .prettierignore tests/unit/documentation.test.ts; git diff --cached --stat; git status --short --branch
+
+
+
+
+Ran git commit --only .prettierignore tests/unit/documentation.test.ts -m 'fix(ci): ignore mutable agent runtime state'
+
+
+
+
+
+
+
+
+
+The focused CI correction is committed as 6f66800 and includes only .prettierignore plus its regression test. I’ll push it, update the draft PR, and wait for the rerun checks before completing Step 001.
+
+
+
+
+Ran commandsRan git push origin 'feature/1-phase-3-step-gates'
+
+
+
+
+Ran $comment = @'
+## Step 001 correction — CI formatting gate
+
+GitHub Actions exposed a project-owned baseline failure: the tracked, mutable `.agent/dev-run.lock.json` was checked by Prettier, so an ordinary development session could fail CI.
+
+- Root cause: `.agent/` was not excluded by `.prettierignore`.
+- Fix commit: `6f66800` (`fix(ci): ignore mutable agent runtime state`)
+- Changed files: `.prettierignore`, `tests/unit/documentation.test.ts`
+- Regression test: targeted documentation test passed (2 tests).
+- Focused validation: `npm.cmd run format:check` passed.
+- Full affected validation: `npm.cmd test` passed (23 files, 71 tests).
+- Restart: not applicable; this correction changes CI formatting scope only and does not alter executable runtime behavior.
+
+The branch has been pushed. Waiting for GitHub Actions before the Step 001 gate is finalized.
+'@
+& 'C:\Program Files\GitHub CLI\gh.exe' pr comment 2 --repo 'Jamie1304/Coding-agent' --body $comment
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --watch --interval 10
+
+
+
+
+
+
+
+
+
+The replacement CI run is still queued on both operating systems. I’m continuing to watch it; Step 001 cannot unlock until the remote check result is recorded.
+
+
+
+
+Ran commandsRan & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' run watch 30543692905 --repo 'Jamie1304/Coding-agent' --exit-status --interval 10
+
+
+
+
+
+
+
+
+
+The CI rerun uncovered broader pre-existing cross-platform defects: Windows still fails Prettier, while Ubuntu treats native executables as Node scripts and several Windows-only process assumptions fail. Step 001 remains in correction; I’m inspecting the exact Windows log, CI workflow, resolver, and failing tests before applying a focused fix.
+
+
+
+
+Ran commandsRan & 'C:\Program Files\GitHub CLI\gh.exe' run view 30543692905 --repo 'Jamie1304/Coding-agent' --job 90874377261 --log-failed
+
+
+
+
+Ran Get-Content -Raw '.github\workflows\ci.yml'; Get-Content -Raw 'packages\shared\src\command-resolver.ts'; Get-Content -Raw 'tests\unit\process-quality.test.ts'; Get-Content -Raw 'tests\unit\electron-runtime.test.ts'
+
+
+
+
+Ran Get-Content -Raw 'scripts\electron-runtime.ts'; Get-Content -Raw 'tests\integration\workspace-git.test.ts'; Get-Content -Raw 'tests\integration\run-service.test.ts'; Get-Content -Raw 'tests\e2e\daemon-workflow.test.ts'
+
+
+
+
+Ran Get-Content 'packages\shared\src\command-resolver.ts' | Select-Object -Skip 120 -First 190 | Out-String -Width 300; Get-Content -Raw '.prettierrc.json'; if (Test-Path '.gitattributes') { Get-Content -Raw '.gitattributes' } else { 'NO_GITATTRIBUTES' }; git config --get core.autocrlf
+
+
+
+
+
+
+
+
+
+The root causes are clear: extensionless Unix binaries are classified as Node scripts, Electron diagnosis assumes electron.exe on every platform, and the repository has no line-ending policy for Windows checkout. I’m fixing those cross-platform baselines with regression coverage.
+
+
+
+
+Edited files, ran a commandRan Get-Content 'tests\unit\command-resolver.test.ts' | Select-Object -First 50 | Out-String -Width 300; Select-String -Path 'packages\shared\src\command-resolver.ts' -Pattern 'function kindFor' -Context 2,6; Select-String -Path 'scripts\electron-runtime.ts' -Pattern 'const rawExecutable|const expectedRaw' -Context 1,3
+
+
+
+
+Created file
+
+.gitattributes+1-0
+
+
+
+
+
+
+
+
+Edited file
+
+command-resolver.ts+2-2
+
+
+
+
+
+
+
+
+Edited file
+
+electron-runtime.ts+6-2
+
+
+
+
+
+
+
+
+Edited file
+
+command-resolver.test.ts+9-0
+
+
+
+
+
+
+
+
+Edited file
+
+documentation.test.ts+2-0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The cross-platform fixes and their regression checks are now in place. I’ll run the affected tests, type checking, and formatting locally before committing this second correction attempt.
+
+
+
+
+Ran commandsRan npm.cmd run format:check
+
+
+
+
+Ran npx.cmd vitest run tests/unit/command-resolver.test.ts tests/unit/electron-runtime.test.ts tests/unit/documentation.test.ts --reporter=verbose
+
+
+
+
+Ran npm.cmd run typecheck
+
+
+
+
+
+
+
+
+
+Type checking and the focused tests pass; Prettier found only the edited resolver file. I’ll apply the formatter to that file, then rerun formatting and the full suite.
+
+
+
+
+Ran commandsRan npx.cmd prettier --write 'packages/shared/src/command-resolver.ts'
+
+
+
+
+Ran npm.cmd run format:check
+
+
+
+
+Ran npm.cmd run lint
+
+
+
+
+Ran npm.cmd test
+
+
+
+
+
+
+
+
+
+The full tests pass (72), but lint caught one issue in the new helper: its platform parameter is now intentionally unused. I’ll mark that parameter accordingly and rerun the complete affected gate.
+
+
+
+
+Ran Get-Content 'packages\shared\src\command-resolver.ts' | Select-Object -Skip 372 -First 18 | Out-String -Width 300
+
+
+
+
+Context automatically compacted
+
+
+
+The approved Phase 3 work is underway. I’m completing the first mandatory checkpoint’s CI correction loop; no implementation milestone will begin until its remote checks are green.
+
+
+
+
+Edited a file, ran commandsEdited file
+
+command-resolver.ts+1-1
+
+
+
+
+
+
+
+
+
+
+Ran & npm.cmd run format:check
+
+
+
+
+Ran & npm.cmd run lint
+
+
+
+
+Ran & npm.cmd run typecheck
+
+
+
+
+Ran & npm.cmd test
+
+
+
+
+
+
+
+
+
+The local correction is now clean through formatting, linting, type checks, and all 72 tests. I’m running the same coverage/build stages that previously failed on GitHub before committing the correction.
+
+
+
+
+Ran commandsRan & npm.cmd run test:coverage
+
+
+
+
+Ran & npm.cmd run build
+
+
+
+
+Ran git status --short; git diff -- .gitattributes .prettierignore packages/shared/src/command-resolver.ts scripts/electron-runtime.ts tests/unit/command-resolver.test.ts tests/unit/documentation.test.ts; git diff --cached --name-status
+
+
+
+
+
+
+
+
+
+Coverage and production builds pass locally. The pending commit contains only the CI portability fixes and regression tests; the pre-existing staged runtime lock and test.txt deletion remain excluded.
+
+
+
+
+Ran commandsRan git diff --check; git add -- .gitattributes packages/shared/src/command-resolver.ts scripts/electron-runtime.ts tests/unit/command-resolver.test.ts tests/unit/documentation.test.ts; git status --short
+
+
+
+
+Ran git commit --only -m "fix(ci): restore cross-platform validation" -- .gitattributes packages/shared/src/command-resolver.ts scripts/electron-runtime.ts tests/unit/command-resolver.test.ts tests/unit/documentation.test.ts
+
+
+
+
+Ran git status --short; git show --stat --oneline --summary HEAD; git diff --cached --name-status
+
+
+
+
+Ran git push origin feature/1-phase-3-step-gates
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' pr comment 2 --repo 'Jamie1304/Coding-agent' --body 'Step 001 CI correction: added LF checkout normalization, classify extensionless Unix binaries as executables, and select the platform-native Electron binary. Added regression coverage. Local checks passed: format:check, lint, typecheck, test (72), test:coverage (72), and build. Commit d191b7a. Runtime restart is not applicable: this change affects CI/configuration and diagnostic resolution only. Awaiting required GitHub checks before completing Step 001.'
+
+
+
+
+
+
+
+
+
+The correction is committed and pushed as d191b7a; the draft PR now records the exact cause and verification. I’m monitoring its required GitHub checks—Step 001 remains blocked until they pass remotely.
+
+
+
+
+Ran commandsRan & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+Ran Start-Sleep -Seconds 25; & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' run view 30544141492 --repo 'Jamie1304/Coding-agent' --json status,conclusion,jobs
+
+
+
+
+Ran Start-Sleep -Seconds 30; & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+
+
+
+
+
+The remote workflow uncovered one more Linux-only failure during the test phase; GitHub then cancelled the dependent Windows job. I’m retrieving the failing log now and will keep Step 001 in correction until the complete matrix is green.
+
+
+
+
+Ran commandsRan & 'C:\Program Files\GitHub CLI\gh.exe' run view 30544141492 --repo 'Jamie1304/Coding-agent' --log-failed
+
+
+
+
+Ran Get-Content -LiteralPath 'scripts/electron-runtime.ts'; Get-Content -LiteralPath 'tests/unit/electron-runtime.test.ts'; Get-Content -LiteralPath 'node_modules/electron/path.txt'
+
+
+
+
+Ran Get-Content -LiteralPath 'node_modules/electron/install.js'; Get-Content -LiteralPath 'node_modules/electron/index.js'; Get-Content -LiteralPath 'node_modules/electron/package.json'
+
+
+
+
+Ran node.exe -e "const path=require('node:path'); console.log(path.resolve('/a/b/package.json','..')); console.log(path.resolve('C:\\a\\b\\package.json','..'))"
+
+
+
+
+Ran & npm.cmd run electron:diagnose
+
+
+
+
+Ran & npx.cmd tsx -e "import { diagnoseElectron } from './scripts/electron-runtime.ts'; diagnoseElectron(process.cwd()).then((result) => console.log(JSON.stringify(result, null, 2)))"
+
+
+
+
+Ran node.exe -e "const p=require('node:path').posix; console.log(p.resolve('/home/runner/node_modules/electron/package.json','..')); console.log(p.join('/home/runner/node_modules/electron','dist','electron')); console.log(p.isAbsolute(p.join('/home/runner/node_modules/electron','dist','electron')))"
+
+
+
+
+Ran rg --line-number --hidden --glob '!node_modules/**' "ELECTRON_OVERRIDE_DIST_PATH|ELECTRON_RUN_AS_NODE|path\.txt|diagnoseElectron" .
+
+
+
+
+
+
+
+
+
+The failing assertion is specifically the Electron package’s path.txt validation, not launchability. I’ve confirmed the installed Electron logic is platform-derived; I’m making that test report the exact platform/path values on any repeat so the remaining discrepancy is diagnosable from CI evidence.
+
+
+
+
+Edited a file, ran commandsEdited file
+
+electron-runtime.test.ts+9-1
+
+
+
+
+
+
+
+
+
+
+Ran & npx.cmd prettier --write tests/unit/electron-runtime.test.ts; & npx.cmd vitest run tests/unit/electron-runtime.test.ts --reporter=verbose; git diff --check
+
+
+
+
+Ran git add -- tests/unit/electron-runtime.test.ts; git commit --only -m "test(ci): report electron path diagnostics" -- tests/unit/electron-runtime.test.ts; git status --short; git diff --cached --name-status
+
+
+
+
+Ran git push origin feature/1-phase-3-step-gates; & 'C:\Program Files\GitHub CLI\gh.exe' pr comment 2 --repo 'Jamie1304/Coding-agent' --body 'Step 001 follow-up: Ubuntu narrowed the remaining failure to Electron path-file validation. Commit 93e3d3e adds assertion diagnostics (platform, path-file value, raw path) so any repeat produces the exact runner values needed for a deterministic correction. Focused Electron runtime test passes locally.'
+
+
+
+
+Ran Start-Sleep -Seconds 25; & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+Ran Start-Sleep -Seconds 25; & 'C:\Program Files\GitHub CLI\gh.exe' run view 30544457330 --repo 'Jamie1304/Coding-agent' --json status,conclusion,jobs
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' run view 30544457330 --repo 'Jamie1304/Coding-agent' --log-failed
+
+
+
+
+Ran if (Test-Path -LiteralPath '.npmrc') { Get-Content -LiteralPath '.npmrc' }; Get-Content -LiteralPath '.github/workflows/validate.yml'; rg --line-number --hidden --glob '!node_modules/**' "ignore-scripts|ELECTRON_SKIP_BINARY_DOWNLOAD|electron" package.json package-lock.json .github .npmrc
+
+
+
+
+Ran rg --files -g '.github/**' -g '*.yml' -g '*.yaml' -g '.npmrc' -g 'npmrc'
+
+
+
+
+Ran rg --files --hidden -g '.github/**' -g '*.yml' -g '*.yaml' -g '.npmrc' -g 'npmrc'
+
+
+
+
+Ran Get-Content -LiteralPath '.github/workflows/ci.yml'; Get-Content -LiteralPath 'package.json'
+
+
+
+
+Ran Get-Content -LiteralPath 'package-lock.json' | Select-Object -Skip 3855 -First 35; Get-ChildItem -Force -Name; Get-ChildItem Env: | Where-Object { $_.Name -match 'ELECTRON|npm_config_ignore_scripts|NPM_CONFIG_IGNORE_SCRIPTS' } | Format-Table -AutoSize
+
+
+
+
+
+
+
+
+
+Root cause confirmed: the lockfile’s Electron package intentionally has no install hook, so clean Linux CI has no path.txt or binary. The test incorrectly treated an uninstalled optional desktop runtime as a failure. I’m updating it to verify the documented “missing—run npm run electron:install” recovery path, while retaining the locked-binary assertions when Electron is installed.
+
+
+
+
+Edited a file, ran commandsRan Get-Content -LiteralPath 'scripts/package.ts'; Get-Content -LiteralPath 'scripts/bootstrap.ps1' | Select-Object -First 80; Get-Content -LiteralPath 'docs/troubleshooting.md' | Select-Object -Skip 45 -First 35
+
+
+
+
+Edited file
+
+electron-runtime.test.ts+9-1
+
+
+
+
+
+
+
+
+
+
+Ran & npm.cmd run format:check; & npm.cmd run typecheck; & npm.cmd run test:coverage
+
+
+
+
+Ran git diff --check; git add -- tests/unit/electron-runtime.test.ts; git commit --only -m "fix(test): support missing Electron CI runtime" -- tests/unit/electron-runtime.test.ts; git status --short
+
+
+
+
+Ran git push origin feature/1-phase-3-step-gates; & 'C:\Program Files\GitHub CLI\gh.exe' pr comment 2 --repo 'Jamie1304/Coding-agent' --body 'Step 001 correction: CI diagnostics showed node_modules/electron/path.txt is intentionally absent after clean npm ci because the locked Electron package has no install hook. Commit 0338ddf verifies the explicit missing-runtime recovery (npm run electron:install) in that environment while retaining locked-binary assertions when Electron is installed. Local format:check, typecheck, and coverage suite pass (72 tests). Awaiting the next complete matrix.'
+
+
+
+
+Ran Start-Sleep -Seconds 30; & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+Ran Start-Sleep -Seconds 30; & 'C:\Program Files\GitHub CLI\gh.exe' run view 30544661693 --repo 'Jamie1304/Coding-agent' --json status,conclusion,jobs
+
+
+
+
+
+
+
+
+
+Ubuntu is now fully green. Windows has passed install, format, and lint and is in the remaining validation stages; the package job will run only after that matrix completes.
+
+
+
+
+Ran commandsRan Start-Sleep -Seconds 35; & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+Ran Start-Sleep -Seconds 40; & 'C:\Program Files\GitHub CLI\gh.exe' run view 30544661693 --repo 'Jamie1304/Coding-agent' --json status,conclusion,jobs
+
+
+
+
+
+
+
+
+
+Linux is green, but Windows still has a coverage-stage failure, so the package job correctly did not run. I’m pulling that log and will correct the Windows-specific case rather than advancing the plan.
+
+
+
+
+Edited a file, ran commandsRan & 'C:\Program Files\GitHub CLI\gh.exe' run view 30544661693 --repo 'Jamie1304/Coding-agent' --log-failed
+
+
+
+
+Ran Get-Content -LiteralPath 'tests/unit/doctor.test.ts'; Get-Content -LiteralPath 'scripts/doctor-lib.ts' | Select-Object -First 280; Get-Content -LiteralPath 'scripts/doctor.ts'
+
+
+
+
+Edited file
+
+doctor.test.ts+8-2
+
+
+
+
+
+
+
+
+
+
+Ran & npm.cmd run format:check; & npm.cmd run lint; & npm.cmd run typecheck; & npm.cmd run test:coverage; & npm.cmd run build
+
+
+
+
+
+
+
+
+
+The VS Code assertion has been corrected for clean Windows runners. A local repeat then exposed an unrelated flaky port-allocation timeout (the remote Windows run had passed that test); I’m inspecting the test’s retry logic before committing so the checkpoint remains evidence-based.
+
+
+
+
+Edited a file, ran commands
+
+
+The correction now covers both platform assumptions and the renderer’s port fallback: if the requested port is occupied, Vite asks the OS for a free port instead of racing through adjacent ports. Local formatting, linting, type checks, coverage (72 tests), and builds all pass.
+
+
+
+
+Ran commandsRan git status --short; git diff --check; git diff -- scripts/dev-supervisor.ts tests/unit/doctor.test.ts; git diff --cached --name-status
+
+
+
+
+Ran git add -- scripts/dev-supervisor.ts tests/unit/doctor.test.ts; git commit --only -m "fix(ci): stabilize platform validation" -- scripts/dev-supervisor.ts tests/unit/doctor.test.ts; git status --short; git diff --cached --name-status
+
+
+
+
+Ran git push origin feature/1-phase-3-step-gates; & 'C:\Program Files\GitHub CLI\gh.exe' pr comment 2 --repo 'Jamie1304/Coding-agent' --body 'Step 001 correction: Windows CI exposed a test that assumed VS Code was installed. Commit a81e0bd now verifies it as optional when absent, and hardens renderer fallback to request an OS-assigned port if the requested port is occupied (eliminating adjacent-port contention observed locally). Local format:check, lint, typecheck, coverage (72 tests), and build pass. Awaiting full Ubuntu + Windows validation and Windows packaging.'
+
+
+
+
+Ran Start-Sleep -Seconds 30; & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+Ran Start-Sleep -Seconds 45; & 'C:\Program Files\GitHub CLI\gh.exe' run view 30545106141 --repo 'Jamie1304/Coding-agent' --json status,conclusion,jobs
+
+
+
+
+
+
+
+
+
+Ubuntu is fully green again. Windows has cleared setup, lint, and type checks and is now in coverage; after it succeeds, the workflow will automatically proceed to the Windows packaging artifact job.
+
+
+
+
+Ran commandsRan Start-Sleep -Seconds 45; & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+Ran Start-Sleep -Seconds 45; & 'C:\Program Files\GitHub CLI\gh.exe' run view 30545106141 --repo 'Jamie1304/Coding-agent' --json status,conclusion,jobs
+
+
+
+
+Ran Start-Sleep -Seconds 20; & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+
+
+
+
+
+All three required GitHub checks are now green: Ubuntu validation, Windows validation, and Windows packaging. I’m finalizing the Step 001 evidence record and completion gate next; only then will the mandatory plan permit Step 002.
+
+
+
+
+Edited files, ran commandsRan Get-ChildItem -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline' -File | Select-Object -ExpandProperty Name; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/step-definition.json'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/correction-attempts.json'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/completion-gate.json'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/git-checkpoint.json'
+
+
+
+
+Ran Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/focused-tests.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/runtime-errors.json'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/diff-review.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/implementation-summary.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/independent-review.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/changed-files.md'
+
+
+
+
+Ran Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/acceptance-test-matrix.json'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/documentation-updates.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/knowledge-updates.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/runtime-tests.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/restart-tests.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/ui-tests.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/api-tests.md'
+
+
+
+
+Edited file
+
+completion-gate.json+6-6
+
+
+
+
+
+
+
+
+Edited file
+
+correction-attempts.json+30-1
+
+
+
+
+
+
+
+
+Edited file
+
+git-checkpoint.json+11-4
+
+
+
+
+
+
+
+
+Edited file
+
+step-definition.json+1-1
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+acceptance-test-matrix.json+2-1
+
+
+
+
+
+
+
+
+Edited file
+
+changed-files.md+7-0
+
+
+
+
+
+
+
+
+Edited file
+
+diff-review.md+8-1
+
+
+
+
+
+
+
+
+Edited file
+
+focused-tests.md+11-1
+
+
+
+
+
+
+
+
+Edited file
+
+implementation-summary.md+3-1
+
+
+
+
+
+
+
+
+Edited file
+
+runtime-errors.json+19-1
+
+
+
+
+
+
+
+
+
+
+Ran Get-Content -LiteralPath 'scripts/dev.ts'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/runtime-start.log'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/terminal-operations.jsonl' | Select-Object -Last 12
+
+
+
+
+Ran Get-Content -LiteralPath '.agent/dev-run.lock.json'; $lock = Get-Content -LiteralPath '.agent/dev-run.lock.json' -Raw | ConvertFrom-Json; Get-Process -Id $lock.pid -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,StartTime | Format-Table -AutoSize; Get-NetTCPConnection -State Listen -LocalAddress 127.0.0.1 -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in 5173,52486 } | Select-Object LocalPort,OwningProcess | Format-Table -AutoSize
+
+
+
+
+Ran $health = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:55045/health' -TimeoutSec 10; $renderer = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:5173/' -TimeoutSec 10; [PSCustomObject]@{healthStatus=$health.StatusCode; healthBody=$health.Content; rendererStatus=$renderer.StatusCode; rendererHasRoot=($renderer.Content -match 'root')} | ConvertTo-Json -Compress
+
+
+
+
+Edited file
+
+api-tests.md+1-1
+
+
+
+
+
+
+
+
+Edited file
+
+documentation-updates.md+1-1
+
+
+
+
+
+
+
+
+Edited file
+
+restart-tests.md+1-1
+
+
+
+
+
+
+
+
+Edited file
+
+runtime-start.log+2-0
+
+
+
+
+
+
+
+
+Edited file
+
+runtime-tests.md+2-0
+
+
+
+
+
+
+
+
+Edited file
+
+ui-tests.md+1-1
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+completion-gate.json+2-2
+
+
+
+
+
+
+
+
+Edited file
+
+independent-review.md+1-1
+
+
+
+
+
+
+
+
+
+
+Ran node.exe -e "for (const file of ['step-definition.json','correction-attempts.json','completion-gate.json','git-checkpoint.json','acceptance-test-matrix.json','runtime-errors.json']) JSON.parse(require('node:fs').readFileSync('.agent-runs/phase-3-20260730/steps/001-audit-github-baseline/' + file, 'utf8')); console.log('Step 001 JSON evidence valid.')"; git status --short; & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' pr comment 2 --repo 'Jamie1304/Coding-agent' --body 'Step 001 complete. Evidence is stored locally under .agent-runs/phase-3-20260730/steps/001-audit-github-baseline (intentionally ignored). GitHub run 30545106141 is green for Ubuntu validation, Windows validation, and Windows packaging. The completion gate is STEP_COMPLETE; user-staged .agent/dev-run.lock.json and test.txt changes were preserved and excluded from every Phase 3 commit.'
+
+
+
+
+Ran node.exe -e "const plan=require('./.agent-runs/phase-3-20260730/approved-step-plan.json'); console.log(JSON.stringify(plan.steps[1], null, 2))"
+
+
+
+
+
+
+
+
+
+Step 001 is formally complete and remotely verified. I’m entering Step 002 only now: defining the persisted plan/gate/evidence contracts and migration, with its own tests and runtime/restart evidence before the next step can begin.
+
+
+
+
+Edited files, ran commandsRan rg --line-number "z\.object|RunRecord|createRun|migrations|schema_version|user_version|migration|frozen|revision|report" packages apps tests --glob '!**/dist/**'
+
+
+
+
+Ran Get-Content -LiteralPath 'packages/shared/src/index.ts'; Get-Content -LiteralPath 'packages/database/src/index.ts'; Get-Content -LiteralPath 'packages/core/src/reporting.ts'; Get-Content -LiteralPath 'packages/core/src/run-service.ts'
+
+
+
+
+Ran Get-Content -LiteralPath 'tests/integration/phase2-migration.test.ts'; Get-Content -LiteralPath 'tests/helpers.ts'; Get-Content -LiteralPath 'packages/core/src/index.ts'; Get-Content -LiteralPath 'packages/database/package.json'; Get-Content -LiteralPath 'packages/core/package.json'; Get-Content -LiteralPath 'packages/shared/package.json'
+
+
+
+
+Ran Test-Path -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence'
+
+
+
+
+Ran New-Item -ItemType Directory -Path '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence' -Force | Out-Null; New-Item -ItemType Directory -Path '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/logs' -Force | Out-Null
+
+
+
+
+Created file
+
+completion-gate.json+22-0
+
+
+
+
+
+
+
+
+Created file
+
+context-analysis.md+5-0
+
+
+
+
+
+
+
+
+Created file
+
+step-definition.json+9-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+index.ts+276-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+index.ts+1-0
+
+
+
+
+
+
+
+
+Created file
+
+step-plan.ts+130-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+index.ts+56-1
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+index.ts+154-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+reporting.ts+73-2
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.ts+1-0
+
+
+
+
+
+
+
+
+
+
+Ran & npm.cmd run typecheck
+
+
+
+
+Edited file
+
+index.ts+34-4
+
+
+
+
+
+
+
+
+
+
+Ran & npm.cmd run typecheck
+
+
+
+
+Ran Get-Content -LiteralPath 'packages/database/src/index.ts' | Select-Object -Skip 520 -First 150
+
+
+
+
+Edited file
+
+index.ts+25-9
+
+
+
+
+
+
+
+
+
+
+Ran & npm.cmd run typecheck
+
+
+
+
+Edited file
+
+phase2-migration.test.ts+1-1
+
+
+
+
+
+
+
+
+Created file
+
+phase3-migration.test.ts+159-0
+
+
+
+
+
+
+
+
+Created file
+
+step-plan.test.ts+109-0
+
+
+
+
+
+
+
+
+
+
+Ran & npx.cmd prettier --write packages/shared/src/index.ts packages/core/src/step-plan.ts packages/core/src/reporting.ts packages/core/src/index.ts packages/database/src/index.ts tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts tests/integration/phase2-migration.test.ts; & npm.cmd run typecheck; & npx.cmd vitest run tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts tests/integration/phase2-migration.test.ts --reporter=verbose
+
+
+
+
+Ran Get-Content -LiteralPath 'tests/unit/step-plan.test.ts' | Select-Object -Skip 48 -First 28
+
+
+
+
+Edited file
+
+step-plan.test.ts+3-3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The Step 002 contracts, migration, and persistence service are in place with focused schema and restart-persistence tests. I found and corrected a strict TypeScript fixture issue; I’m rerunning the focused checks before expanding validation.
+
+
+
+
+Edited files, ran commandsRan & npm.cmd run typecheck
+
+
+
+
+Ran & npx.cmd vitest run tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts tests/integration/phase2-migration.test.ts --reporter=verbose
+
+
+
+
+Edited file
+
+phase3-migration.test.ts+15-0
+
+
+
+
+
+
+
+
+
+
+Ran Get-Content -LiteralPath 'docs/architecture.md'; Get-Content -LiteralPath 'docs/developer-guide.md'
+
+
+
+
+Edited file
+
+architecture.md+16-1
+
+
+
+
+
+
+
+
+Edited file
+
+developer-guide.md+7-0
+
+
+
+
+
+
+
+
+
+
+Ran & npx.cmd prettier --write tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts docs/architecture.md docs/developer-guide.md; & npm.cmd run typecheck; & npx.cmd vitest run tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts tests/integration/phase2-migration.test.ts --reporter=verbose
+
+
+
+
+
+
+
+
+
+Focused schema, migration, persistence/reload, evidence-preservation, and secret-redaction tests pass. The durable model is documented in the architecture and developer guides; I’m running the full local validation matrix next.
+
+
+
+
+Edited files, ran commandsRan & npm.cmd run format:check
+
+
+
+
+Ran & npm.cmd run lint
+
+
+
+
+Ran rg --line-number "datetime\(|serialized === undefined|gh\[opsu\]" packages/shared/src/index.ts
+
+
+
+
+Edited file
+
+index.ts+11-12
+
+
+
+
+
+
+
+
+
+
+Ran & npx.cmd prettier --write packages/shared/src/index.ts; & npm.cmd run lint
+
+
+
+
+Edited file
+
+index.ts+10-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.test.ts+14-0
+
+
+
+
+
+
+
+
+
+
+Ran & npx.cmd prettier --write packages/shared/src/index.ts tests/unit/step-plan.test.ts; & npm.cmd run format:check
+
+
+
+
+Ran & npm.cmd run lint
+
+
+
+
+Ran & npm.cmd run typecheck
+
+
+
+
+Ran & npm.cmd run test:coverage
+
+
+
+
+Ran & npm.cmd run build
+
+
+
+
+Ran Get-Content -LiteralPath 'apps/daemon/src/index.ts'; Get-Content -LiteralPath 'apps/daemon/src/server.ts' | Select-Object -First 180; Get-Content -LiteralPath 'apps/desktop/vite.config.ts'
+
+
+
+
+Ran Test-Path -LiteralPath 'node_modules/tsx/dist/cli.mjs'
+
+
+
+
+
+
+
+
+
+Because the existing desktop session is user-owned, I’m validating Step 002 through a separate, owned daemon using an isolated data directory. It will be started, health-checked, stopped, restarted against the same SQLite file, and checked again—without touching the user’s session.
+
+
+
+
+Ran $runtimeRoot = Join-Path (Resolve-Path '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence').Path 'runtime-daemon'; New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null; $dataDirectory = Join-Path $runtimeRoot 'data'; New-Item -ItemType Directory -Path $dataDirectory -Force | Out-Null; function Start-OwnedDaemon([string]$name) { $stdout = Join-Path $runtimeRoot "$name.stdout.log"; $stderr = Join-Path $runtimeRoot "$name.stderr.log"; $process = Start-Process -FilePath 'node.exe' -ArgumentList @('node_modules/tsx/dist/cli.mjs', 'apps/daemon/src/index.ts') -WorkingDirectory (Get-Location).Path -Environment @{ AGENT_DATA_DIR = $dataDirectory; AGENT_PORT = '0'; AGENT_LOG_LEVEL = 'warn' } -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru; for ($attempt = 0; $attempt -lt 40; $attempt += 1) { if (Test-Path -LiteralPath $stdout) { $line = Get-Content -LiteralPath $stdout -Raw -ErrorAction SilentlyContinue; if ($line -match '"event":"daemon.ready","url":"([^"]+)"') { return [PSCustomObject]@{ Process = $process; Url = $Matches[1]; Stdout = $stdout; Stderr = $stderr } } }; Start-Sleep -Milliseconds 250 }; if (-not $process.HasExited) { Stop-Process -Id $process.Id }; throw "Owned daemon did not become ready: $name" }; function Stop-OwnedDaemon($daemon) { Stop-Process -Id $daemon.Process.Id -ErrorAction SilentlyContinue; $daemon.Process.WaitForExit(10000) | Out-Null; if (-not $daemon.Process.HasExited) { throw "Owned daemon did not stop" } }; $first = Start-OwnedDaemon 'first'; $firstHealth = Invoke-WebRequest -UseBasicParsing -Uri "$($first.Url)/health" -TimeoutSec 10; Stop-OwnedDaemon $first; $second = Start-OwnedDaemon 'second'; $secondHealth = Invoke-WebRequest -UseBasicParsing -Uri "$($second.Url)/health" -TimeoutSec 10; $databasePath = Join-Path $dataDirectory 'agent.sqlite'; $schema = node.exe -e "const { DatabaseSync } = require('node:sqlite'); const db = new DatabaseSync(process.argv[1]); console.log(JSON.stringify(db.prepare('SELECT version FROM schema_migrations ORDER BY version').all())); db.close();" $databasePath; Stop-OwnedDaemon $second; [PSCustomObject]@{ firstHealth = $firstHealth.StatusCode; secondHealth = $secondHealth.StatusCode; migrations = ($schema | ConvertFrom-Json).version; firstProcess = $first.Process.Id; secondProcess = $second.Process.Id; stopped = $true } | ConvertTo-Json -Compress
+
+
+
+
+The first owned-daemon attempt was blocked before launch because this PowerShell build does not support Start-Process -Environment; no process started and no user state changed. I’m retrying by setting the isolated process environment only for launch, then immediately restoring the shell environment.
+
+
+
+
+Edited files, ran commandsRan $runtimeRoot = Join-Path (Resolve-Path '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence').Path 'runtime-daemon'; New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null; $dataDirectory = Join-Path $runtimeRoot 'data'; New-Item -ItemType Directory -Path $dataDirectory -Force | Out-Null; function Start-OwnedDaemon([string]$name) { $stdout = Join-Path $runtimeRoot "$name.stdout.log"; $stderr = Join-Path $runtimeRoot "$name.stderr.log"; $previousDataDirectory = $env:AGENT_DATA_DIR; $previousPort = $env:AGENT_PORT; $previousLogLevel = $env:AGENT_LOG_LEVEL; $process = $null; try { $env:AGENT_DATA_DIR = $dataDirectory; $env:AGENT_PORT = '0'; $env:AGENT_LOG_LEVEL = 'warn'; $process = Start-Process -FilePath 'node.exe' -ArgumentList @('node_modules/tsx/dist/cli.mjs', 'apps/daemon/src/index.ts') -WorkingDirectory (Get-Location).Path -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru } finally { $env:AGENT_DATA_DIR = $previousDataDirectory; $env:AGENT_PORT = $previousPort; $env:AGENT_LOG_LEVEL = $previousLogLevel }; for ($attempt = 0; $attempt -lt 40; $attempt += 1) { if (Test-Path -LiteralPath $stdout) { $line = Get-Content -LiteralPath $stdout -Raw -ErrorAction SilentlyContinue; if ($line -match '"event":"daemon.ready","url":"([^"]+)"') { return [PSCustomObject]@{ Process = $process; Url = $Matches[1]; Stdout = $stdout; Stderr = $stderr } } }; Start-Sleep -Milliseconds 250 }; if ($null -ne $process -and -not $process.HasExited) { Stop-Process -Id $process.Id }; throw "Owned daemon did not become ready: $name" }; function Stop-OwnedDaemon($daemon) { Stop-Process -Id $daemon.Process.Id -ErrorAction SilentlyContinue; $daemon.Process.WaitForExit(10000) | Out-Null; if (-not $daemon.Process.HasExited) { throw "Owned daemon did not stop" } }; $first = Start-OwnedDaemon 'first'; $firstHealth = Invoke-WebRequest -UseBasicParsing -Uri "$($first.Url)/health" -TimeoutSec 10; Stop-OwnedDaemon $first; $second = Start-OwnedDaemon 'second'; $secondHealth = Invoke-WebRequest -UseBasicParsing -Uri "$($second.Url)/health" -TimeoutSec 10; $databasePath = Join-Path $dataDirectory 'agent.sqlite'; $schema = node.exe -e "const { DatabaseSync } = require('node:sqlite'); const db = new DatabaseSync(process.argv[1]); console.log(JSON.stringify(db.prepare('SELECT version FROM schema_migrations ORDER BY version').all())); db.close();" $databasePath; Stop-OwnedDaemon $second; [PSCustomObject]@{ firstHealth = $firstHealth.StatusCode; secondHealth = $secondHealth.StatusCode; migrations = ($schema | ConvertFrom-Json).version; firstProcess = $first.Process.Id; secondProcess = $second.Process.Id; stopped = $true } | ConvertTo-Json -Compress
+
+
+
+
+Ran rg --line-number "\bapis\b|APIs" packages tests docs --glob '!**/dist/**'
+
+
+
+
+Edited file
+
+index.ts+2-2
+
+
+
+
+
+
+
+
+Edited file
+
+phase3-migration.test.ts+1-1
+
+
+
+
+
+
+
+
+
+
+Ran & npx.cmd prettier --write packages/shared/src/index.ts tests/integration/phase3-migration.test.ts; & npm.cmd run typecheck; & npx.cmd vitest run tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts --reporter=verbose
+
+
+
+
+Ran git status --short; git diff --stat; git diff --check; git diff -- packages/shared/src/index.ts packages/core/src/step-plan.ts packages/database/src/index.ts packages/core/src/reporting.ts tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts tests/integration/phase2-migration.test.ts docs/architecture.md docs/developer-guide.md
+
+
+
+
+Edited file
+
+step-plan.ts+6-2
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+index.ts+39-1
+
+
+
+
+
+
+
+
+Edited file
+
+phase3-migration.test.ts+19-1
+
+
+
+
+
+
+
+
+
+
+Ran & npx.cmd prettier --write packages/shared/src/index.ts packages/core/src/step-plan.ts tests/integration/phase3-migration.test.ts; & npm.cmd run typecheck; & npx.cmd vitest run tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts --reporter=verbose
+
+
+
+
+
+
+
+
+
+The isolated daemon migration/restart check passed twice against the same SQLite file (migrations 1, 2, and 3 present) and both owned processes exited cleanly. I’ve also expanded the plan contract to retain runtime-validation and Git-checkpoint requirements; I’m doing the final local matrix before Step 002 review and checkpoint.
+
+
+
+
+Ran commandsRan & npm.cmd run format:check
+
+
+
+
+Ran & npm.cmd run lint
+
+
+
+
+Ran & npm.cmd run typecheck
+
+
+
+
+Ran & npm.cmd run test:coverage
+
+
+
+
+Ran & npm.cmd run build
+
+
+
+
+Ran & npm.cmd audit --audit-level=high
+
+
+
+
+
+
+
+
+
+Step 002’s full local matrix passes: format, lint, typecheck, coverage (25 files / 76 tests), build, and high-severity audit. I’m recording the runtime/restart outcome and review evidence now, then I’ll checkpoint only the Step 002 files and await the required remote matrix.
+
+
+
+
+Edited filesCreated file
+
+changed-files.md+14-0
+
+
+
+
+
+
+
+
+Created file
+
+implementation-summary.md+7-0
+
+
+
+
+
+
+
+
+Created file
+
+terminal-operations.jsonl+3-0
+
+
+
+
+
+
+
+
+
+
+Created file
+
+acceptance-test-matrix.json+7-0
+
+
+
+
+
+
+
+
+Created file
+
+correction-attempts.json+9-0
+
+
+
+
+
+
+
+
+Created file
+
+runtime-errors.json+11-0
+
+
+
+
+
+
+
+
+Created file
+
+runtime-start.log+5-0
+
+
+
+
+
+
+
+
+
+
+Created file
+
+focused-tests.md+5-0
+
+
+
+
+
+
+
+
+Created file
+
+restart-tests.md+4-0
+
+
+
+
+
+
+
+
+Created file
+
+runtime-tests.md+4-0
+
+
+
+
+
+
+
+
+
+
+Created file
+
+api-tests.md+4-0
+
+
+
+
+
+
+
+
+Created file
+
+ui-tests.md+4-0
+
+
+
+
+
+
+
+
+
+
+Created file
+
+diff-review.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+documentation-updates.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+git-checkpoint.json+7-0
+
+
+
+
+
+
+
+
+Created file
+
+independent-review.md+3-0
+
+
+
+
+
+
+
+
+Created file
+
+knowledge-updates.md+3-0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Context automatically compacted
+
+
+
+Phase 3’s first gate is complete and Step 2’s implementation and local verification are finished. I’m finalizing its evidence and Git checkpoint now; I’ll only proceed to the next approved step once its remote checks pass.
+
+
+
+
+Ran commandsRan Get-ChildItem -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence' -File | Select-Object -ExpandProperty Name; git status --short; git diff --check
+
+
+
+
+Ran Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/completion-gate.json',' .agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/git-checkpoint.json' -ErrorAction Stop; git diff --stat; git diff -- docs/architecture.md docs/developer-guide.md packages/core/src/index.ts packages/core/src/reporting.ts packages/database/src/index.ts packages/shared/src/index.ts tests/integration/phase2-migration.test.ts; git diff --no-index -- /dev/null packages/core/src/step-plan.ts; git diff --no-index -- /dev/null tests/integration/phase3-migration.test.ts; git diff --no-index -- /dev/null tests/unit/step-plan.test.ts
+
+
+
+
+Ran Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/completion-gate.json'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/git-checkpoint.json'; git diff --stat; git diff -- docs/architecture.md docs/developer-guide.md packages/core/src/index.ts packages/core/src/reporting.ts packages/database/src/index.ts packages/shared/src/index.ts tests/integration/phase2-migration.test.ts; git diff --no-index -- /dev/null packages/core/src/step-plan.ts; git diff --no-index -- /dev/null tests/integration/phase3-migration.test.ts; git diff --no-index -- /dev/null tests/unit/step-plan.test.ts
+
+
+
+
+Ran Get-Content -LiteralPath 'packages/core/src/step-plan.ts'; Get-Content -LiteralPath 'packages/shared/src/index.ts' | Select-Object -Skip 1 -First 420; Get-Content -LiteralPath 'packages/database/src/index.ts' | Select-Object -First 740; Get-Content -LiteralPath 'tests/integration/phase3-migration.test.ts'; Get-Content -LiteralPath 'tests/unit/step-plan.test.ts'
+
+
+
+
+
+
+
+
+
+My review caught a recovery flaw before checkpointing: reinitializing a run could reset stored step states and gates. I’m tightening that path and adding a regression test so recovery preserves the durable execution record.
+
+
+
+
+Edited files, ran a commandEdited file
+
+step-plan.ts+43-0
+
+
+
+
+
+
+
+
+Edited file
+
+phase3-migration.test.ts+10-0
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.test.ts+7-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.ts+1-2
+
+
+
+
+
+
+
+
+Edited file
+
+phase3-migration.test.ts+3-0
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.test.ts+0-7
+
+
+
+
+
+
+
+
+
+
+Ran npx.cmd prettier --write packages/core/src/step-plan.ts tests/integration/phase3-migration.test.ts tests/unit/step-plan.test.ts; npx.cmd vitest run tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts --reporter=verbose
+
+
+
+
+
+
+
+
+
+The recovery regression now passes: existing frozen plans cannot be replaced, and reinitialization retains an in-progress gate and its mirrored plan-step state. I’m rerunning the full repository validation before creating the Step 2 commit.
+
+
+
+
+Ran commandsRan npm.cmd run validate
+
+
+
+
+Ran Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/implementation-summary.md',' .agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/acceptance-test-matrix.json',' .agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/diff-review.md',' .agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/independent-review.md' -ErrorAction SilentlyContinue; git status --short; git diff --check; git diff --name-only
+
+
+
+
+Ran Get-Content -LiteralPath 'C:\Users\Jamie Kanbier\.codex\attachments\6e33070e-339a-434e-ac69-c46996121644\pasted-text.txt' -Raw
+
+
+
+
+
+
+
+
+
+A pass against the approved specification found a few persistence-contract gaps—notably explicit completion-evidence fields, the full runtime/restart gate checklist, and the machine-readable terminal evidence fields. I’m correcting those before the checkpoint so this milestone is a real foundation for the later engines.
+
+
+
+
+Edited files, ran commandsEdited file
+
+index.ts+9-3
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.ts+8-3
+
+
+
+
+
+
+
+
+
+
+Ran rg -n -C 5 "StepEvidenceSchema|StepTerminalOperationSchema|StepRuntimeErrorSchema" packages/shared/src/index.ts
+
+
+
+
+Edited file
+
+index.ts+55-17
+
+
+
+
+
+
+
+
+
+
+Ran rg -n "saveRuntimeError|StepRuntimeError|saveTerminalOperation|StepTerminalOperation|runtime:|fullValidation" packages tests --glob '!dist/**'
+
+
+
+
+Edited file
+
+phase3-migration.test.ts+11-1
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+reporting.ts+20-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+architecture.md+4-3
+
+
+
+
+
+
+
+
+Edited file
+
+developer-guide.md+2-1
+
+
+
+
+
+
+
+
+Edited file
+
+phase3-migration.test.ts+1-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.test.ts+22-0
+
+
+
+
+
+
+
+
+
+
+Ran npx.cmd prettier --write packages/shared/src/index.ts packages/core/src/step-plan.ts packages/core/src/reporting.ts docs/architecture.md docs/developer-guide.md tests/integration/phase3-migration.test.ts tests/unit/step-plan.test.ts; npx.cmd vitest run tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts --reporter=verbose
+
+
+
+
+Edited file
+
+phase3-migration.test.ts+1-0
+
+
+
+
+
+
+
+
+
+
+Ran npx.cmd vitest run tests/unit/step-plan.test.ts tests/integration/phase3-migration.test.ts --reporter=verbose; npm.cmd run typecheck
+
+
+
+
+
+
+
+
+
+The expanded contracts and their migration coverage pass focused tests and type checking. I’m running the full validation suite again now; the result will be the local evidence attached to the Step 2 checkpoint.
+
+
+
+
+Ran commandsRan npm.cmd run validate
+
+
+
+
+Ran Get-Content -LiteralPath 'package.json'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/runtime-tests.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/restart-tests.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/terminal-operations.jsonl'
+
+
+
+
+Ran rg -n "AGENT_DATA_DIR|DAEMON_PORT|PORT|health" apps/daemon/src scripts/dev.ts; Get-ChildItem -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/runtime-daemon' -File | Select-Object Name,Length
+
+
+
+
+Ran Get-Content -LiteralPath 'apps/daemon/src/index.ts','apps/daemon/src/server.ts' | Select-Object -First 160
+
+
+
+
+
+
+
+
+
+The first isolated-runtime command was blocked before it ran because its cleanup mechanism was disallowed by the execution environment. I’m switching to an interactive, owned terminal session with Ctrl+C shutdown, which keeps the test isolated without touching the user’s development process.
+
+
+
+
+Ran commandsRan $env:AGENT_DATA_DIR = 'C:\Users\Jamie Kanbier\Documents\Coding agent\.agent-runs\phase-3-20260730\steps\002-step-schemas-persistence\runtime-daemon\final-data'
+$env:AGENT_PORT = '53921'
+& 'C:\Program Files\nodejs\npm.cmd' run dev:daemon
+
+
+
+
+Ran $response = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:53921/health' -TimeoutSec 5
+[PSCustomObject]@{ status = $response.StatusCode; body = $response.Content } | ConvertTo-Json -Compress
+Get-NetTCPConnection -LocalPort 53921 -State Listen | Select-Object -ExpandProperty OwningProcess
+
+
+
+
+Ran Stop-Process -Id 18152 -ErrorAction Stop
+$deadline = (Get-Date).AddSeconds(10)
+while ((Get-Date) -lt $deadline) {
+  $listener = Get-NetTCPConnection -LocalPort 53921 -State Listen -ErrorAction SilentlyContinue
+  if ($null -eq $listener) { 'Port 53921 released'; exit 0 }
+  Start-Sleep -Milliseconds 250
+}
+throw 'Owned daemon port 53921 did not release after shutdown.'
+
+
+
+
+Ran $env:AGENT_DATA_DIR = 'C:\Users\Jamie Kanbier\Documents\Coding agent\.agent-runs\phase-3-20260730\steps\002-step-schemas-persistence\runtime-daemon\final-data'
+$env:AGENT_PORT = '53922'
+& 'C:\Program Files\nodejs\npm.cmd' run dev:daemon
+
+
+
+
+Ran $response = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:53922/health' -TimeoutSec 5
+[PSCustomObject]@{ status = $response.StatusCode; body = $response.Content } | ConvertTo-Json -Compress
+Get-NetTCPConnection -LocalPort 53922 -State Listen | Select-Object -ExpandProperty OwningProcess
+
+
+
+
+Ran Stop-Process -Id 584 -ErrorAction Stop
+$deadline = (Get-Date).AddSeconds(10)
+while ((Get-Date) -lt $deadline) {
+  $listener = Get-NetTCPConnection -LocalPort 53922 -State Listen -ErrorAction SilentlyContinue
+  if ($null -eq $listener) { 'Port 53922 released'; exit 0 }
+  Start-Sleep -Milliseconds 250
+}
+throw 'Owned daemon port 53922 did not release after shutdown.'
+
+
+
+
+Ran & 'C:\Program Files\nodejs\node.exe' -e 'const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync("C:\\Users\\Jamie Kanbier\\Documents\\Coding agent\\.agent-runs\\phase-3-20260730\\steps\\002-step-schemas-persistence\\runtime-daemon\\final-data\\agent.sqlite"); console.log(JSON.stringify(db.prepare("SELECT version FROM schema_migrations ORDER BY version").all())); db.close();'
+
+
+
+
+Ran $runtimeCheck = 'const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync("C:\\Users\\Jamie Kanbier\\Documents\\Coding agent\\.agent-runs\\phase-3-20260730\\steps\\002-step-schemas-persistence\\runtime-daemon\\final-data\\agent.sqlite"); console.log(JSON.stringify(db.prepare("SELECT version FROM schema_migrations ORDER BY version").all())); db.close();'
+& 'C:\Program Files\nodejs\node.exe' -e $runtimeCheck
+
+
+
+
+
+
+
+
+
+The real daemon started twice against the same isolated data directory, returned /health 200 both times, and released each owned port after shutdown. An optional post-stop SQLite probe had a command-quoting failure in the harness; it did not affect the daemon, and the migration/reopen assertion is already covered by the passing integration test.
+
+
+
+
+Edited files, ran commandsRan Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/completion-gate.json'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/correction-attempts.json'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/git-checkpoint.json'
+
+
+
+
+Edited file
+
+completion-gate.json+15-15
+
+
+
+
+
+
+
+
+Edited file
+
+git-checkpoint.json+7-1
+
+
+
+
+
+
+
+
+Edited file
+
+implementation-summary.md+6-5
+
+
+
+
+
+
+
+
+Edited file
+
+restart-tests.md+3-2
+
+
+
+
+
+
+
+
+Edited file
+
+runtime-tests.md+3-2
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+correction-attempts.json+8-0
+
+
+
+
+
+
+
+
+
+
+Ran Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/diff-review.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/independent-review.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/documentation-updates.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/knowledge-updates.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/changed-files.md'; Get-Content -LiteralPath '.agent-runs/phase-3-20260730/steps/002-step-schemas-persistence/acceptance-test-matrix.json'
+
+
+
+
+Ran git diff --check
+git diff --stat
+git diff --cached --stat
+git status --short
+git diff --name-only
+git ls-files --others --exclude-standard
+
+
+
+
+Ran npm.cmd audit --audit-level=high
+
+
+
+
+Edited file
+
+acceptance-test-matrix.json+2-2
+
+
+
+
+
+
+
+
+Edited file
+
+diff-review.md+4-1
+
+
+
+
+
+
+
+
+Edited file
+
+terminal-operations.jsonl+3-0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Local acceptance, runtime/restart, validation, audit, documentation, and the adversarial review are recorded. I’ve also confirmed the only pre-existing staged items are the user’s lock-state change and test.txt deletion; they will remain untouched and outside this commit.
+
+
+
+
+Ran commandsRan git diff --check
+git add -- docs/architecture.md docs/developer-guide.md packages/core/src/index.ts packages/core/src/reporting.ts packages/core/src/step-plan.ts packages/database/src/index.ts packages/shared/src/index.ts tests/integration/phase2-migration.test.ts tests/integration/phase3-migration.test.ts tests/unit/step-plan.test.ts
+git diff --cached --name-status
+
+
+
+
+Ran git commit --only -m "feat(steps): persist approved plans and completion evidence" -- docs/architecture.md docs/developer-guide.md packages/core/src/index.ts packages/core/src/reporting.ts packages/core/src/step-plan.ts packages/database/src/index.ts packages/shared/src/index.ts tests/integration/phase2-migration.test.ts tests/integration/phase3-migration.test.ts tests/unit/step-plan.test.ts
+
+
+
+
+Ran git show --stat --oneline --summary HEAD
+git show --name-status --format='' HEAD
+git status --short
+git log -1 --format=%H
+
+
+
+
+
+
+
+
+
+Step 2 is now committed as bb3ef7a with only the ten intended implementation, test, and documentation files. The user’s staged test.txt deletion and mutable dev-run lock are still present but were not included. I’m pushing this checkpoint and will wait for the remote validation before unlocking Step 3.
+
+
+
+
+Edited files, ran commandsEdited file
+
+completion-gate.json+3-3
+
+
+
+
+
+
+
+
+Edited file
+
+git-checkpoint.json+1-0
+
+
+
+
+
+
+
+
+
+
+Ran git push origin feature/1-phase-3-step-gates
+
+
+
+
+Ran $body = @'
+Phase 3 Step 002 complete locally: step schemas and persistence.
+
+Commit: bb3ef7a1506456a93b75a42446029d5f776eb881
+
+Implemented:
+- Frozen chronological plan, completion-gate, amendment, terminal, runtime-error/warning, and secret-free evidence contracts.
+- SQLite migration 3 with plan, gate, amendment, evidence, terminal-operation, and runtime-error persistence.
+- Non-destructive JSON/Markdown approved-plan and per-step evidence artifacts; recovery preserves frozen plans and active gates.
+
+Verification:
+- Focused schema/migration suite: 4 passing tests.
+- npm run validate: format, lint, typecheck, 76 tests, build, and package passed.
+- npm audit --audit-level=high: 0 vulnerabilities.
+- Owned isolated daemon started twice, /health returned 200 both times, and its ports were released after shutdown.
+
+Documentation: architecture and developer guidance updated. Project-knowledge generator work remains explicitly scheduled for Step 007; this step records its durable update contract.
+
+The user-owned staged dev lock and test.txt deletion were preserved and excluded. Remote CI is now the remaining Step 002 gate.
+'@
+& 'C:\Program Files\GitHub CLI\gh.exe' pr comment 2 --repo 'Jamie1304/Coding-agent' --body $body
+& 'C:\Program Files\GitHub CLI\gh.exe' pr view 2 --repo 'Jamie1304/Coding-agent' --json url,headRefOid,headRefName,isDraft
+
+
+
+
+Edited file
+
+completion-gate.json+4-4
+
+
+
+
+
+
+
+
+Edited file
+
+git-checkpoint.json+2-0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The pushed commit is confirmed as the draft PR’s head, and the Step 2 evidence has been posted to the PR. GitHub Actions is the sole remaining gate; I’m monitoring it before any Step 3 work begins.
+
+
+
+
+Ran commandsRan & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link,workflow
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' run view 30547882185 --repo 'Jamie1304/Coding-agent' --json status,conclusion,url,jobs
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' run watch 30547882185 --repo 'Jamie1304/Coding-agent' --interval 15 --exit-status
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link,workflow
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\run.exe' view 30547882185 --repo 'Jamie1304/Coding-agent' --json status,conclusion,url
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' run watch 30547882185 --repo 'Jamie1304/Coding-agent' --interval 10 --exit-status
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link,workflow
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' run watch 30547882185 --repo 'Jamie1304/Coding-agent' --interval 10 --exit-status
+
+
+
+
+Ran & 'C:\Program Files\GitHub CLI\gh.exe' pr checks 2 --repo 'Jamie1304/Coding-agent' --json name,state,link,workflow
+
+
+
+
+
+
+
+
+
+Step 2’s remote gate has passed: Ubuntu validation, Windows validation, and Windows packaging all succeeded for bb3ef7a. I’m recording the completed checkpoint and then I’ll begin only the approved Step 3 state-machine milestone.
+
+
+
+
+Edited files, ran commandsEdited file
+
+completion-gate.json+2-2
+
+
+
+
+
+
+
+
+Edited file
+
+git-checkpoint.json+7-1
+
+
+
+
+
+
+
+
+
+
+Ran $body = @'
+Phase 3 Step 002 remote checkpoint complete.
+
+All GitHub Actions checks for bb3ef7a passed:
+- validate (ubuntu-latest)
+- validate (windows-latest)
+- package-windows
+
+Run: https://github.com/Jamie1304/Coding-agent/actions/runs/30547882185
+
+The step gate is complete. Step 003 (step-gated state machine) is now the only unlocked implementation milestone.
+'@
+& 'C:\Program Files\GitHub CLI\gh.exe' pr comment 2 --repo 'Jamie1304/Coding-agent' --body $body
+
+
+
+
+Ran Get-Content -LiteralPath '.agent-runs/phase-3-20260730/approved-step-plan.json' -Raw; Get-ChildItem -LiteralPath '.agent-runs/phase-3-20260730/steps' -Directory | Select-Object -ExpandProperty Name; git status --short
+
+
+
+
+
+
+
+
+
+Step 3 is unlocked. I’m inspecting the current state machine and run lifecycle now to map the new top-level and per-step transitions without disrupting the existing approval flow or the user’s staged changes.
+
+
+
+
+Edited files, ran commandsRan Get-Content -LiteralPath 'packages/core/src/state-machine.ts'; Get-Content -LiteralPath 'packages/core/src/run-service.ts'; Get-Content -LiteralPath 'tests/unit/state-machine.test.ts'; Get-Content -LiteralPath 'tests/integration/run-service.test.ts'; Get-Content -LiteralPath 'packages/core/src/orchestrator.ts' | Select-Object -First 260; Get-Content -LiteralPath 'packages/shared/src/index.ts' | Select-Object -First 130
+
+
+
+
+Ran New-Item -ItemType Directory -Force -Path '.agent-runs\phase-3-20260730\steps\003-step-gated-state-machine' | Out-Null
+
+
+
+
+Created file
+
+completion-gate.json+22-0
+
+
+
+
+
+
+
+
+Created file
+
+context-analysis.md+6-0
+
+
+
+
+
+
+
+
+Created file
+
+step-definition.json+12-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+index.ts+35-6
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.ts+8-5
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.ts+3-3
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+index.ts+41-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+step-plan.ts+22-2
+
+
+
+
+
+
+
+
+
+
+Created file
+
+step-gate.ts+152-0
+
+
+
+
+
+
+
+
+
+
+Edited file
+
+index.ts+1-0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Edited 72 files+2,356-14Review changesUndoReview
+
+.agent-runs/phase-3-20260730/approved-step-plan.json.agent-runs/phase-3-20260730/approved-step-plan.json+213-0
+.agent-runs/phase-3-20260730/approved-step-plan.md.agent-runs/phase-3-20260730/approved-step-plan.md+26-0
+.agent-runs/phase-3-20260730/baseline-audit.md.agent-runs/phase-3-20260730/baseline-audit.md+74-0
+Show 69 more files
+
+
+continue this prompt from where it left off because i cut it off while still working.

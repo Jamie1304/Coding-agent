@@ -551,6 +551,47 @@ export class AgentDatabase {
       });
   }
 
+  transitionStepCompletionGate(
+    gate: StepCompletionGate,
+    expectedState: StepCompletionGate["state"]
+  ): boolean {
+    const parsed = StepCompletionGateSchema.parse(gate);
+    this.raw.exec("BEGIN IMMEDIATE");
+    try {
+      const gateUpdate = this.raw
+        .prepare(
+          `UPDATE step_completion_gates
+           SET state=@state,updated_at=@updatedAt,payload_json=@payloadJson
+           WHERE run_id=@runId AND step_id=@stepId AND state=@expectedState`
+        )
+        .run({
+          runId: parsed.runId,
+          stepId: parsed.stepId,
+          state: parsed.state,
+          updatedAt: parsed.updatedAt,
+          payloadJson: JSON.stringify(parsed),
+          expectedState
+        });
+      if (gateUpdate.changes !== 1) {
+        this.raw.exec("ROLLBACK");
+        return false;
+      }
+      const stepUpdate = this.raw
+        .prepare(
+          `UPDATE approved_plan_steps SET state=? WHERE run_id=? AND step_id=?`
+        )
+        .run(parsed.state, parsed.runId, parsed.stepId);
+      if (stepUpdate.changes !== 1) {
+        throw new Error(`Plan step not found for gate transition: ${parsed.stepId}`);
+      }
+      this.raw.exec("COMMIT");
+      return true;
+    } catch (error) {
+      this.raw.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   stepCompletionGates(runId: string): StepCompletionGate[] {
     return (
       this.raw

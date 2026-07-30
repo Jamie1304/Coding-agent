@@ -13,7 +13,8 @@ import {
   StepRuntimeErrorSchema,
   type StepRuntimeError,
   StepTerminalOperationSchema,
-  type StepTerminalOperation
+  type StepTerminalOperation,
+  type StepState
 } from "@agent/shared";
 import { ReportGenerator } from "./reporting.js";
 
@@ -42,12 +43,13 @@ const gateCriteria = [
 export function createPendingCompletionGate(
   runId: string,
   stepId: string,
+  state: StepState = "STEP_LOCKED",
   updatedAt = new Date().toISOString()
 ): StepCompletionGate {
   return StepCompletionGateSchema.parse({
     runId,
     stepId,
-    state: "PENDING",
+    state,
     criteria: Object.fromEntries(
       gateCriteria.map((criterion) => [
         criterion,
@@ -80,7 +82,7 @@ export function assertStepMayStart(
     .filter((candidate) => candidate.order < step.order)
     .filter((candidate) => {
       const gate = gatesByStep.get(candidate.id);
-      return !gate || gate.state !== "COMPLETE" || !completionGatePassed(gate);
+      return !gate || gate.state !== "STEP_COMPLETE" || !completionGatePassed(gate);
     })
     .map((candidate) => candidate.id);
   if (incomplete.length) {
@@ -120,9 +122,10 @@ export class StepPlanService {
 
     this.database.saveStepPlan(parsedPlan);
     await this.reports.initializeStepPlan(workspacePath, parsedPlan);
-    for (const step of parsedPlan.steps) {
-      this.database.savePlanStep(parsedPlan.runId, step, "PENDING");
-      const gate = createPendingCompletionGate(parsedPlan.runId, step.id, parsedPlan.createdAt);
+    for (const [index, step] of parsedPlan.steps.entries()) {
+      const state: StepState = index === 0 ? "STEP_READY" : "STEP_LOCKED";
+      this.database.savePlanStep(parsedPlan.runId, step, state);
+      const gate = createPendingCompletionGate(parsedPlan.runId, step.id, state, parsedPlan.createdAt);
       this.database.saveStepCompletionGate(gate);
       await this.reports.initializeStepEvidence(workspacePath, parsedPlan.runId, step, gate);
     }
@@ -138,6 +141,27 @@ export class StepPlanService {
   }
 
   saveGate(gate: StepCompletionGate): void {
+    const { parsed, planStep } = this.validateGate(gate);
+    this.database.saveStepCompletionGate(parsed);
+    this.database.savePlanStep(parsed.runId, planStep, parsed.state);
+  }
+
+  transitionGate(
+    gate: StepCompletionGate,
+    expectedState: StepCompletionGate["state"]
+  ): void {
+    const { parsed } = this.validateGate(gate);
+    if (!this.database.transitionStepCompletionGate(parsed, expectedState)) {
+      throw new Error(
+        `Step gate transition rejected because the persisted state is not ${expectedState}`
+      );
+    }
+  }
+
+  private validateGate(gate: StepCompletionGate): {
+    parsed: StepCompletionGate;
+    planStep: PlanStep;
+  } {
     const parsed = StepCompletionGateSchema.parse(gate);
     const planStep = this.database
       .planSteps(parsed.runId)
@@ -145,12 +169,12 @@ export class StepPlanService {
     if (!planStep) {
       throw new Error(`Cannot save a gate for an unknown plan step: ${parsed.stepId}`);
     }
-    if (parsed.state === "COMPLETE" && !completionGatePassed(parsed)) {
+    if (parsed.state === "STEP_COMPLETE" && !completionGatePassed(parsed)) {
       throw new Error(
         "A completion gate cannot be complete until every applicable criterion passes with evidence"
       );
     }
-    if (parsed.state === "COMPLETE") {
+    if (parsed.state === "STEP_COMPLETE") {
       const evidenceIds = new Set(
         this.database.stepEvidence(parsed.runId, parsed.stepId).map((evidence) => evidence.id)
       );
@@ -166,8 +190,7 @@ export class StepPlanService {
       if (!plan) throw new Error(`Cannot complete a gate without its frozen plan: ${parsed.runId}`);
       assertStepMayStart(plan, this.gates(parsed.runId), parsed.stepId);
     }
-    this.database.saveStepCompletionGate(parsed);
-    this.database.savePlanStep(parsed.runId, planStep, parsed.state);
+    return { parsed, planStep };
   }
 
   saveAmendment(amendment: StepAmendment): void {

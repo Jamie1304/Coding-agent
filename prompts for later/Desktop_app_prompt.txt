@@ -1,0 +1,2098 @@
+# Codex Master Prompt: Turn Personal Codex Agent into a Self-Contained Windows Desktop Application
+
+## Role
+
+Act as a senior Electron architect, TypeScript engineer, Windows desktop engineer, installer engineer, security engineer, DevOps engineer, release engineer, and QA lead.
+
+Work directly inside the supplied **Personal Codex Agent** repository.
+
+Your task is to transform the existing project from a development-oriented Electron application and unpacked executable into a complete, production-ready Windows desktop application with:
+
+* A normal Windows installer.
+* A self-contained installed `.exe`.
+* Automatic production startup of the local daemon.
+* No requirement for the user to install Node.js or npm.
+* A first-run setup wizard.
+* Safe installation of required external tools.
+* Optional integration installation.
+* Repair and diagnostics functionality.
+* Secure update preparation.
+* Correct process lifecycle management.
+* Clean uninstall support.
+* Reproducible Windows release builds.
+
+Do not create a new application beside the existing project. Improve the current project and preserve its architecture, security model, visual identity, existing functionality, tests, database, provider system, Codex workflow, VS Code integration, and documentation.
+
+---
+
+# 1. Known Repository Architecture
+
+The supplied repository is already a TypeScript npm-workspace monorepo.
+
+Its current architecture includes:
+
+## Desktop application
+
+Location:
+
+```text
+apps/desktop
+```
+
+Technology:
+
+* Electron 43.
+* React 19.
+* Vite.
+* TypeScript.
+* Sandboxed renderer.
+* Context isolation.
+* Node integration disabled.
+* Minimal preload bridge.
+* Local file-based production renderer.
+* Loopback API connection to the daemon.
+
+Important files include:
+
+```text
+apps/desktop/src/main/index.ts
+apps/desktop/src/preload/index.ts
+apps/desktop/src/renderer/main.tsx
+apps/desktop/src/renderer/styles.css
+apps/desktop/vite.config.ts
+```
+
+## Local daemon
+
+Location:
+
+```text
+apps/daemon
+```
+
+Technology:
+
+* Fastify.
+* WebSocket support.
+* Loopback-only HTTP service.
+* Random local port.
+* Random bearer token.
+* Zod validation.
+* SQLite persistence.
+* Structured logging.
+* Provider management.
+* Workspace inspection.
+* Agent-run orchestration.
+* Codex app-server integration.
+* Git and GitHub integration.
+* Ollama integration.
+* AI provider routing and budgets.
+
+Important files include:
+
+```text
+apps/daemon/src/index.ts
+apps/daemon/src/server.ts
+```
+
+## Shared packages
+
+The existing workspace contains:
+
+```text
+packages/shared
+packages/database
+packages/core
+packages/ai
+packages/codex-provider
+```
+
+These packages already contain:
+
+* Shared schemas and domain models.
+* SQLite storage and migrations.
+* Workflow state management.
+* Prompt review.
+* Run orchestration.
+* Process execution.
+* Git worktree handling.
+* GitHub CLI integration.
+* Deployment adapters.
+* Verification and reporting.
+* AI provider configuration.
+* Windows Credential Manager storage.
+* Codex CLI integration.
+* Command resolution.
+* Secret redaction.
+* Cost and model routing logic.
+
+## VS Code extension
+
+Location:
+
+```text
+apps/vscode-extension
+```
+
+The extension publishes trusted workspace context to the local agent and already has VSIX packaging support.
+
+## Existing scripts
+
+The repository already contains:
+
+```text
+scripts/bootstrap.ps1
+scripts/build.ts
+scripts/package.ts
+scripts/package-extension.ts
+scripts/dev.ts
+scripts/dev-supervisor.ts
+scripts/doctor.ts
+scripts/doctor-lib.ts
+scripts/electron-runtime.ts
+```
+
+## Existing generated artifacts
+
+The repository currently generates:
+
+```text
+artifacts/desktop/Personal Codex Agent-win32-x64/
+artifacts/personal-codex-agent-vscode-<version>.vsix
+artifacts/SHA256SUMS.txt
+```
+
+The existing Windows artifact is an unpacked Electron directory rather than a complete installer.
+
+---
+
+# 2. Confirmed Current Packaging Gap
+
+The current production package is not yet a complete standalone application.
+
+The existing Electron main process:
+
+```text
+apps/desktop/src/main/index.ts
+```
+
+currently expects a pre-existing file:
+
+```text
+%LOCALAPPDATA%\PersonalCodexAgent\daemon.json
+```
+
+It reads the daemon URL and token from that file, but it does not start, supervise, restart, or stop the daemon itself.
+
+The existing development supervisor starts:
+
+1. The local daemon.
+2. The Vite renderer.
+3. Electron.
+
+However, that supervisor is designed for development and is not part of the installed application.
+
+The current packaging script:
+
+```text
+scripts/package.ts
+```
+
+copies only the compiled desktop output into an Electron package. It does not yet create a full installer and does not establish a complete production daemon lifecycle.
+
+The current daemon build also uses external package resolution:
+
+```text
+--packages=external
+```
+
+That means the daemon cannot simply be copied into the installed application without ensuring all required runtime packages and native modules are correctly included.
+
+This prompt must resolve these exact issues.
+
+---
+
+# 3. Primary Objective
+
+Produce a complete Windows desktop product that behaves as follows:
+
+1. The user downloads one installer.
+2. The user opens the installer.
+3. The installer installs Personal Codex Agent.
+4. The installer creates Start menu and optional desktop shortcuts.
+5. The user launches Personal Codex Agent normally.
+6. The Electron main process automatically starts the bundled daemon.
+7. The application waits for a verified daemon health response.
+8. The desktop interface opens.
+9. A first-run wizard checks required and optional integrations.
+10. The app installs missing required integrations after user approval.
+11. The user configures Codex or another supported AI provider.
+12. The user selects a project.
+13. The existing prompt-review and approved-execution workflow functions normally.
+14. Closing the app shuts down all application-owned processes.
+15. Later launches do not repeat completed setup unnecessarily.
+16. Updates preserve configuration, credentials, database data, and run history.
+17. The application can be repaired or uninstalled through normal Windows workflows.
+
+The user must not need to:
+
+* Open PowerShell.
+* Open Command Prompt.
+* Run `npm install`.
+* Run `npm ci`.
+* Run `npm run dev`.
+* Run `bootstrap.ps1`.
+* Install Node.js for the desktop application itself.
+* Locate the daemon manually.
+* Start the daemon separately.
+* Edit environment variables manually for normal use.
+* run the application from the source repository.
+
+---
+
+# 4. Non-Negotiable Architectural Decision
+
+Retain the existing Electron, React, TypeScript, Fastify, and SQLite architecture.
+
+Do not rewrite the project in:
+
+* Python.
+* Tauri.
+* .NET.
+* Java.
+* Another desktop framework.
+
+There is no valid reason to replace the existing architecture solely to produce an installer.
+
+The application already has a deliberate trust boundary between:
+
+* The sandboxed Electron renderer.
+* The restricted preload bridge.
+* The privileged local daemon.
+* The VS Code extension.
+
+Preserve this trust boundary.
+
+The daemon should remain logically separated from the renderer. Do not move command execution, Git operations, credentials, Codex execution, provider secrets, or direct file access into the renderer.
+
+---
+
+# 5. Repository Safety and Initial Audit
+
+Before changing code:
+
+1. Read `AGENTS.md`.
+2. Read `README.md`.
+3. Read the architecture, security, testing, troubleshooting, provider, deployment, and setup documentation.
+4. Inspect the current Git status.
+5. Record the current branch and commit.
+6. Do not discard existing user changes.
+7. Do not delete `.agent-runs`.
+8. Do not delete the existing SQLite database.
+9. Do not reset branches.
+10. Do not force-push.
+11. Do not remove working Phase 1, Phase 2, or Phase 3 behavior.
+12. Run the current tests before implementation.
+13. Save a baseline report.
+
+At minimum run:
+
+```powershell
+npm ci
+npm run format:check
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run doctor -- --json
+```
+
+Record all failures as baseline failures. Do not hide or reinterpret them.
+
+The repository has previously experienced enterprise Windows Code Integrity restrictions affecting unsigned Electron executables. Do not bypass, disable, or weaken Windows security policy. Preserve this issue as a documented external signing requirement.
+
+---
+
+# 6. Production Daemon Lifecycle
+
+Implement a real production daemon manager in the Electron main process.
+
+Create a focused component such as:
+
+```text
+apps/desktop/src/main/daemon-manager.ts
+```
+
+The exact filename may differ, but the responsibility must be isolated and testable.
+
+## Required daemon startup sequence
+
+On production launch:
+
+1. Obtain a single-instance application lock.
+2. Resolve the application data directory.
+3. Create required directories.
+4. Initialize structured desktop logging.
+5. Check for stale daemon metadata.
+6. Confirm whether a recorded process is alive and application-owned.
+7. Remove only stale metadata.
+8. Start the bundled daemon.
+9. Pass the correct writable application-data directory.
+10. Use a dynamically selected loopback port.
+11. Generate or receive a fresh secure token.
+12. Wait for a definite daemon-ready signal.
+13. Verify `GET /health`.
+14. Verify the returned daemon version is compatible with the desktop version.
+15. Save restricted diagnostic connection metadata.
+16. Expose connection information to the renderer through the preload bridge.
+17. Only then load the full application interface.
+
+Do not rely on a daemon that happened to be left running by development mode.
+
+## Recommended process architecture
+
+Prefer a dedicated Electron `utilityProcess` or another properly supervised application-owned child process.
+
+The production daemon must use the Node runtime already included with Electron or another runtime packaged inside the application.
+
+Do not require a globally installed Node.js executable.
+
+Do not start the daemon by invoking:
+
+```text
+node
+npm
+npx
+tsx
+```
+
+from the user’s system.
+
+The final implementation may use:
+
+* `utilityProcess.fork`.
+* A bundled Node-compatible child entry point launched through Electron.
+* Another Electron-supported isolated process approach.
+
+Choose the method that gives the best combination of:
+
+* Process isolation.
+* Native module compatibility.
+* Controlled shutdown.
+* Reliable packaging.
+* Crash detection.
+* Logging.
+* Windows compatibility.
+* Testability.
+
+Document the final choice.
+
+## Daemon readiness
+
+Do not use a fixed sleep as the only readiness check.
+
+Use one or more of:
+
+* Structured IPC ready message.
+* Structured stdout event.
+* Bounded polling of the health endpoint.
+* Direct process message event.
+
+The startup must have a timeout and a clear error state.
+
+## Daemon crash handling
+
+When the daemon exits unexpectedly:
+
+* Record the exit code.
+* Record sanitized stderr.
+* Notify the renderer.
+* Disable actions that require the daemon.
+* Attempt only a bounded number of automatic restarts.
+* Use delay or backoff between attempts.
+* Avoid infinite restart loops.
+* Offer a manual retry.
+* Offer diagnostics export.
+* Offer safe-mode startup when appropriate.
+
+## Shutdown
+
+When the application exits:
+
+1. Stop active agent work safely where possible.
+2. Request graceful daemon shutdown.
+3. Wait for a bounded shutdown period.
+4. Terminate only the application-owned process if necessary.
+5. Clean connection metadata.
+6. Close log streams.
+7. Ensure no daemon, Codex, Git, test, or helper processes remain orphaned.
+
+Do not kill unrelated processes by executable name.
+
+---
+
+# 7. Desktop Startup Experience
+
+Add a production startup window or startup state screen.
+
+The user should see meaningful states such as:
+
+```text
+Starting Personal Codex Agent
+Preparing local data
+Starting secure local service
+Checking application files
+Loading database
+Checking integrations
+Ready
+```
+
+Failures must show:
+
+* Plain-language description.
+* Internal error code.
+* Retry action.
+* Repair action.
+* Open logs action.
+* Export diagnostics action.
+* Exit action.
+
+Do not leave the user on a blank window or infinite loading spinner.
+
+The renderer must not display “Daemon connection failed” as the only recovery experience.
+
+---
+
+# 8. Single-Instance Behavior
+
+Use Electron’s single-instance lock.
+
+When a second instance starts:
+
+* Focus the existing application.
+* Restore it if minimized.
+* Forward supported file or project-open arguments where appropriate.
+* Do not start a second daemon.
+* Do not overwrite the first daemon’s metadata.
+* Do not allow concurrent database migrations.
+
+Add automated tests for this behavior where practical.
+
+---
+
+# 9. Self-Contained Core Runtime
+
+The installed application must contain everything required to open and operate its own desktop shell and daemon.
+
+The following must not be external runtime prerequisites:
+
+* Node.js.
+* npm.
+* npx.
+* TypeScript.
+* tsx.
+* Vite.
+* Electron development installation.
+* Build tools.
+* The source repository.
+* The developer’s `node_modules`.
+
+Electron already contains a Node runtime. Use that runtime appropriately.
+
+Package only production-required code and dependencies.
+
+Do not ship the complete development `node_modules` directory.
+
+Do not ship:
+
+* Test files.
+* Coverage reports.
+* `.git`.
+* `.agent-runs`.
+* Development logs.
+* Local databases from the repository.
+* Source repository credentials.
+* `.env` files containing secrets.
+* Existing development lock files.
+* Developer-specific paths.
+* Existing build artifacts inside new build artifacts.
+
+---
+
+# 10. Daemon and Runtime Dependency Packaging
+
+Update the build so the daemon can run from the installed application.
+
+The repository currently builds the daemon with external packages. Decide whether to:
+
+1. Bundle all compatible JavaScript dependencies into the daemon build, while keeping only necessary native modules external; or
+2. Package a minimal production dependency tree with the application.
+
+Prefer the smallest reliable and auditable solution.
+
+The implementation must account for:
+
+* Fastify.
+* `@fastify/websocket`.
+* Pino.
+* Zod.
+* YAML.
+* Internal workspace packages.
+* `@napi-rs/keyring`.
+* Native module loading.
+* `node:sqlite`.
+* Electron’s Node ABI.
+* ASAR behavior.
+* Windows Credential Manager access.
+
+## Native keyring module
+
+`@napi-rs/keyring` requires special attention.
+
+Ensure that:
+
+* Its Windows native binary is included.
+* It is not left inaccessible inside ASAR when unpacking is required.
+* The packaged daemon can load it.
+* The native module is compatible with the runtime used by the daemon.
+* A packaged-app test stores, retrieves, and removes a temporary credential.
+* No secrets are exposed in logs.
+
+Use an `asarUnpack` or equivalent packaging rule when required.
+
+Do not replace Windows Credential Manager with plaintext storage merely to simplify packaging.
+
+---
+
+# 11. Windows Installer
+
+Replace the unpacked-directory-only release as the main distribution method.
+
+Use a maintained installer solution suitable for Electron, preferably:
+
+* `electron-builder` with NSIS; or
+* Another well-supported installer tool with equivalent capabilities.
+
+The main release artifact should follow a predictable format such as:
+
+```text
+Personal-Codex-Agent-Setup-<version>-x64.exe
+```
+
+Place release outputs under a clear path such as:
+
+```text
+artifacts/installers/
+```
+
+The installer must support:
+
+* Windows 10 x64.
+* Windows 11 x64.
+* Per-user installation by default.
+* Installation without administrator rights where possible.
+* Start menu shortcut.
+* Optional desktop shortcut.
+* Application icon.
+* Product name.
+* Publisher field.
+* Version number.
+* Upgrade detection.
+* Uninstall registration.
+* Repair or reinstall behavior.
+* Preservation of application data during upgrade.
+* Optional removal of local application data during uninstall.
+* Clean handling of locked application files.
+* Correct shutdown before update or uninstall.
+
+Do not install mutable user data under `Program Files`.
+
+## Installed locations
+
+Use Windows-standard locations.
+
+Program installation should use an installer-managed directory such as:
+
+```text
+%LOCALAPPDATA%\Programs\Personal Codex Agent\
+```
+
+Application data should remain under a path such as:
+
+```text
+%LOCALAPPDATA%\PersonalCodexAgent\
+```
+
+Use distinct subdirectories for:
+
+```text
+Data
+Logs
+Cache
+Downloads
+Tools
+Backups
+Diagnostics
+Updates
+```
+
+Preserve compatibility with the application’s existing data location.
+
+If the directory layout changes, implement a safe migration.
+
+---
+
+# 12. First-Run Setup Wizard
+
+Turn the current **Setup & Connections** area into a proper first-run setup wizard while keeping it accessible after setup.
+
+The wizard should run automatically on the first successful application launch.
+
+Suggested steps:
+
+1. Welcome.
+2. Application self-check.
+3. Storage and permissions.
+4. Git setup.
+5. Codex setup.
+6. Optional VS Code connection.
+7. Optional GitHub connection.
+8. Optional Ollama setup.
+9. Cloud AI providers.
+10. Final verification.
+11. Ready to use.
+
+The user must be able to return to this wizard or its individual sections later.
+
+## Setup state
+
+Persist setup state with a versioned schema.
+
+Track each component independently:
+
+```text
+not_checked
+checking
+available
+installed_managed
+installed_system
+installed_not_on_path
+authentication_required
+download_required
+installing
+verification_required
+ready
+optional_skipped
+repair_required
+failed
+unsupported
+```
+
+Do not store only one global “setup completed” Boolean.
+
+A future application version must be able to add a new setup step without resetting unrelated completed steps.
+
+---
+
+# 13. Correct Dependency Classification
+
+Replace the current development-oriented prerequisite assumptions with separate development and installed-application diagnostics.
+
+## Core bundled requirements
+
+These must be included in the installed application:
+
+* Electron runtime.
+* Node runtime used by the daemon.
+* React renderer.
+* Local daemon.
+* SQLite functionality.
+* Production JavaScript dependencies.
+* Windows Credential Manager integration.
+* Application documentation needed by the Help section.
+
+The installed application must not report Node.js, npm, or Electron as missing system requirements.
+
+## Required for repository execution
+
+These are required for specific core coding workflows but must not prevent the desktop shell from opening:
+
+* Git.
+* Codex CLI when using the Codex execution provider.
+* Authentication for the selected execution provider.
+
+The app may allow prompt review, provider setup, settings, diagnostics, and other safe functionality before these tools are ready.
+
+## Optional integrations
+
+These must remain optional:
+
+* Visual Studio Code.
+* Personal Codex Agent VS Code extension.
+* GitHub CLI.
+* GitHub authentication.
+* Ollama.
+* Local Ollama models.
+* Deployment tools configured by individual projects.
+* Additional provider CLIs.
+
+Do not install every optional integration automatically.
+
+---
+
+# 14. Managed Tool Installation
+
+Implement an application-managed tool system for external dependencies.
+
+Create a machine-readable manifest, for example:
+
+```text
+resources/dependencies.json
+```
+
+or:
+
+```text
+packages/shared/src/dependency-manifest.ts
+```
+
+The exact design may differ, but it must be centralized and testable.
+
+Each dependency definition should include:
+
+* ID.
+* Display name.
+* Purpose.
+* Required or optional classification.
+* Features that depend on it.
+* Supported version range.
+* Detection methods.
+* System executable candidates.
+* Managed installation path.
+* Official download source.
+* Allowed download domains.
+* Version-discovery method.
+* Installer or archive type.
+* Checksum or signature-verification strategy.
+* Silent-install arguments when applicable.
+* Whether administrator rights may be required.
+* Health-check command.
+* Authentication check.
+* Repair behavior.
+* Uninstall or disable behavior.
+* License URL or attribution.
+
+## Tool resolution order
+
+Use an explicit resolution policy, such as:
+
+1. User-selected executable override.
+2. Application-managed installation.
+3. Compatible system installation.
+4. Safe known locations.
+5. `PATH`.
+6. Not available.
+
+Continue using and improving the existing shared command resolver instead of creating an unrelated duplicate resolver.
+
+Display which installation is active.
+
+Allow the user to switch between a compatible system tool and managed tool where reasonable.
+
+---
+
+# 15. Git Installation
+
+Git is required for worktree-based execution.
+
+The app should:
+
+* Detect compatible Git for Windows installations.
+* Verify `git --version`.
+* Verify support for required worktree operations.
+* Support paths containing spaces.
+* Support OneDrive project paths.
+* Support long paths.
+* Preserve the user’s Git configuration.
+* Never overwrite global Git settings silently.
+
+When Git is missing, provide an in-app installation flow.
+
+Prefer a per-user or portable managed Git distribution when legally and technically supported. A managed Git installation should live under:
+
+```text
+%LOCALAPPDATA%\PersonalCodexAgent\Tools\Git\
+```
+
+If using the full Git for Windows installer:
+
+* Download only from an official source.
+* Verify the installer.
+* Explain that it modifies the system.
+* Request explicit user consent.
+* Use per-user installation if supported.
+* Request elevation only when necessary.
+
+Do not merely display a `winget` command and require the user to open PowerShell.
+
+`winget` may be used as one installation method, but the app must handle systems where `winget` is unavailable.
+
+---
+
+# 16. Codex CLI Installation and Authentication
+
+The current application uses `AppServerCodexProvider` and expects a `codex` executable supporting:
+
+```text
+codex --version
+codex login status
+codex app-server --listen stdio://
+```
+
+Preserve this provider contract.
+
+Implement an in-app Codex setup flow that:
+
+1. Detects an existing compatible Codex CLI.
+2. Shows the resolved path and version.
+3. Checks authentication.
+4. Offers a managed installation when missing.
+5. Uses an official supported Windows distribution.
+6. Verifies the downloaded artifact.
+7. Installs it under the app-managed tools directory where possible.
+8. Sets the internal executable path without requiring a global `PATH` change.
+9. Starts the supported login flow.
+10. Streams sanitized login status.
+11. Rechecks authentication.
+12. Enables Codex-backed runs only after verification.
+
+Do not assume that a global npm installation is the only supported method.
+
+At implementation time, inspect the officially supported Codex Windows distribution method.
+
+Use this decision order:
+
+1. Prefer an official standalone Windows Codex executable or official release archive when available.
+2. Otherwise use an application-managed Node runtime and application-managed npm installation dedicated to Codex.
+3. Do not require the user to install global Node.js merely for Codex.
+4. Do not run `npm install -g` against the user’s global environment without explicit consent.
+
+Keep support for:
+
+```text
+CODEX_EXECUTABLE
+```
+
+as an advanced override, but provide a normal UI path selector instead of requiring manual environment variables.
+
+Authentication secrets must stay in the authentication mechanism supported by Codex. Do not scrape or copy its tokens into application logs.
+
+---
+
+# 17. VS Code and VS Code Extension
+
+The supplied project already builds a VSIX.
+
+Include the matching VSIX with the installed application as a resource.
+
+When VS Code is detected:
+
+* Show its version and executable path.
+* Detect whether the Personal Codex Agent extension is installed.
+* Offer an **Install extension** button.
+* Install the bundled VSIX using the resolved VS Code CLI.
+* Verify the installed extension identifier.
+* Tell the user when a VS Code reload is required.
+
+When VS Code is not installed:
+
+* Keep manual folder selection fully functional.
+* Mark VS Code as optional.
+* Offer installation only after explicit consent.
+* Use an official Microsoft source.
+* Do not block the coding agent’s desktop shell.
+
+The installed VSIX version must match the desktop version unless a documented compatibility rule allows otherwise.
+
+---
+
+# 18. GitHub CLI
+
+Keep GitHub integration optional.
+
+The app should:
+
+* Detect `gh`.
+* Display its version.
+* Detect authentication.
+* Display the active GitHub account when safely available.
+* Offer installation.
+* Offer login.
+* Offer logout or disconnect.
+* Recheck authentication.
+* Keep GitHub stages disabled when unavailable.
+* Continue reporting skipped GitHub stages honestly.
+
+Do not turn a missing GitHub CLI into a startup failure.
+
+---
+
+# 19. Ollama
+
+The project already contains Ollama detection and model management APIs.
+
+Expand this into a complete optional setup flow.
+
+The app should:
+
+* Detect Ollama.
+* Detect its version.
+* Detect whether its service is reachable.
+* Display the configured endpoint.
+* Support local or remote endpoints.
+* Offer official Windows installation.
+* Verify the installer.
+* Recheck the service after installation.
+* List existing models.
+* Display model download sizes when discoverable.
+* Check free disk space.
+* Require explicit approval before downloading a model.
+* Stream pull progress.
+* Support cancellation where possible.
+* Verify the model after download.
+* Support model removal with confirmation.
+
+Never download a large model during general application setup without explicit approval.
+
+Ollama and local models must remain optional when the user uses cloud providers or Codex.
+
+---
+
+# 20. Secure Download Manager
+
+Create one reusable download manager rather than implementing downloads separately for every tool.
+
+It must support:
+
+* HTTPS only.
+* Allowed-domain validation.
+* Redirect validation.
+* TLS certificate validation.
+* Configurable timeout.
+* Retry with bounded exponential backoff.
+* Partial download files.
+* Resume only when safely supported.
+* Progress events.
+* Cancellation.
+* Expected content length when available.
+* Maximum-size protection.
+* SHA-256 verification.
+* Authenticode verification for Windows executables where appropriate.
+* Secure temporary directories.
+* Atomic move after successful verification.
+* Cleanup after failure.
+* Archive path-traversal protection.
+* Extraction outside the archive source directory.
+* Structured sanitized logs.
+
+Never:
+
+* Disable TLS verification.
+* Execute an unverified installer.
+* Pipe downloaded scripts directly into PowerShell.
+* Accept arbitrary download URLs from project content.
+* Trust a filename supplied by an HTTP response without validation.
+* Extract `..\` paths from archives.
+* log secrets embedded in URLs.
+
+---
+
+# 21. User Consent and Elevation
+
+Do not silently modify the machine.
+
+Before an external tool installation, show:
+
+* Tool name.
+* Why it is needed.
+* Whether it is required or optional.
+* Source.
+* Version.
+* Download size when available.
+* Installation location.
+* Whether administrator permission is required.
+* Whether system settings will change.
+
+Prefer:
+
+* Per-user installs.
+* Portable managed tools.
+* App-local configuration.
+
+Request elevation only for the individual installer operation that requires it.
+
+Do not run the complete Personal Codex Agent application as administrator.
+
+---
+
+# 22. Production Diagnostics
+
+Split diagnostics into two modes.
+
+## Developer diagnostics
+
+Continue checking:
+
+* Source Node.js.
+* npm.
+* Electron development runtime.
+* build dependencies.
+* VSIX packaging.
+* repository paths.
+* development scripts.
+
+This mode should remain available through:
+
+```powershell
+npm run doctor
+```
+
+## Installed-application diagnostics
+
+The installed app should check:
+
+* Application version.
+* Installer version.
+* Daemon version.
+* Daemon health.
+* Database health.
+* Data-directory permissions.
+* Log-directory permissions.
+* Credential Manager operation.
+* Bundled resource integrity.
+* Available disk space.
+* Git status.
+* Codex CLI status.
+* Codex authentication.
+* VS Code status.
+* Extension status.
+* GitHub CLI status.
+* GitHub authentication.
+* Ollama status.
+* Provider configuration.
+* Update service status.
+
+Do not call:
+
+```text
+runDoctor(process.cwd())
+```
+
+from the packaged application when `process.cwd()` points to an arbitrary installation or launch directory.
+
+Refactor diagnostics so they receive an explicit runtime context:
+
+```text
+developer
+packaged
+test
+```
+
+and explicit paths.
+
+Do not report source-build prerequisites as missing in the installed application.
+
+---
+
+# 23. Repair Mode
+
+Implement a repair workflow accessible from:
+
+* Startup failure screen.
+* Setup & Connections.
+* Settings.
+* A supported command-line switch such as `--repair`.
+
+Repair mode should be able to:
+
+* Verify bundled application resources.
+* Verify daemon launch.
+* Verify native keyring loading.
+* Verify database access.
+* Verify data-directory permissions.
+* Remove stale daemon metadata safely.
+* Reinstall or repair managed Git.
+* Reinstall or repair managed Codex CLI.
+* Reinstall the bundled VS Code extension.
+* Refresh optional integration status.
+* Clear temporary downloads.
+* Rebuild safe caches.
+* Restore default non-secret settings.
+* Export diagnostics.
+
+Repair mode must not delete:
+
+* User projects.
+* Existing `.agent-runs`.
+* Agent run history.
+* Provider credentials.
+* Database data.
+* Project worktrees.
+
+Any destructive reset must be a separate, clearly labeled action with confirmation and a backup.
+
+---
+
+# 24. Application Data and Migration
+
+Continue to support the existing data directory:
+
+```text
+%LOCALAPPDATA%\PersonalCodexAgent
+```
+
+Do not create a second unrelated data location.
+
+Before making schema or directory changes:
+
+* Detect existing data.
+* Back it up where appropriate.
+* Use transactional database migrations.
+* Preserve provider configurations.
+* Preserve secret references.
+* Preserve run history.
+* Preserve usage history.
+* Preserve routing and budget settings.
+* Preserve daemon logs where useful.
+* Preserve configured executable overrides.
+
+Add explicit versioning for:
+
+* Application configuration.
+* Setup state.
+* Managed-tool metadata.
+* Dependency manifest.
+* Database schema.
+
+Never replace an existing SQLite database with a blank database after a migration error.
+
+---
+
+# 25. Logging and Diagnostics Export
+
+Implement separate structured logs for:
+
+```text
+desktop-main
+daemon
+bootstrap
+downloads
+managed-tools
+updater
+installer
+```
+
+Each log record should include:
+
+* Timestamp.
+* Severity.
+* Component.
+* Operation ID.
+* Sanitized message.
+* Error code.
+* Process ID when relevant.
+* Application version.
+
+Implement rotation and retention limits.
+
+The diagnostics export should include:
+
+* Application version.
+* Windows version.
+* Architecture.
+* Install location.
+* Data location.
+* Daemon status.
+* Dependency versions.
+* Selected executable paths.
+* Setup-state summary.
+* Recent sanitized errors.
+* Database migration version.
+* Update channel.
+* Installer type.
+
+It must exclude:
+
+* API keys.
+* passwords.
+* provider secrets.
+* Codex tokens.
+* GitHub tokens.
+* daemon bearer token.
+* full authorization headers.
+* sensitive project file contents.
+
+Add automated redaction tests.
+
+---
+
+# 26. Renderer and Preload Security
+
+Preserve the existing secure renderer settings:
+
+```text
+contextIsolation: true
+sandbox: true
+nodeIntegration: false
+webSecurity: true
+```
+
+Continue blocking arbitrary navigation.
+
+Continue opening approved HTTPS links externally.
+
+Do not expose generic IPC methods such as:
+
+```text
+execute(command)
+readFile(path)
+writeFile(path)
+spawnProcess(...)
+invoke(channel, arbitraryData)
+```
+
+Use narrow typed preload functions.
+
+Add only the required production functions, such as:
+
+* Get startup state.
+* Subscribe to startup state.
+* Retry daemon start.
+* Get integration status.
+* Begin approved dependency install.
+* Cancel download.
+* Select folder.
+* Open approved local path.
+* Export diagnostics.
+* Restart app.
+* Enter repair mode.
+
+Validate all IPC input in the main process.
+
+Ensure any `openPath` operation is limited to approved report, log, diagnostics, or user-selected paths rather than accepting an unrestricted renderer-supplied path.
+
+---
+
+# 27. Version Centralization
+
+Version `0.2.0` is currently duplicated across several files.
+
+Create one authoritative version source.
+
+Possible approaches include:
+
+* Root `package.json`.
+* A generated version module based on root `package.json`.
+* A dedicated version file validated against package manifests.
+
+Ensure the version is synchronized across:
+
+* Root package.
+* Desktop package.
+* Daemon package.
+* VS Code extension.
+* Daemon health endpoint.
+* Electron application metadata.
+* Installer filename.
+* About page.
+* User agent strings.
+* Codex client initialization.
+* VSIX filename.
+* Update metadata.
+* README.
+* Changelog.
+* Release notes.
+
+Add a CI test that fails when versions diverge.
+
+Do not manually hardcode the version separately in daemon and provider source files.
+
+---
+
+# 28. Installer and Application Signing
+
+The repository has already encountered enterprise Windows Code Integrity policy rejecting unsigned Electron executables.
+
+Treat code signing as a release-critical concern.
+
+Prepare signing for:
+
+* Main application executable.
+* Installer executable.
+* Uninstaller where applicable.
+* Update packages.
+* Native helper executables where applicable.
+
+When no certificate is available:
+
+* Keep local unsigned development builds possible.
+* Clearly mark them as development builds.
+* Do not claim they will work under enterprise signing policy.
+* Add signing hooks to the build pipeline.
+* Document required certificate format.
+* Document timestamp-server configuration.
+* Document CI secret names.
+* Never commit certificate private keys.
+* Never generate and present a self-signed certificate as a production solution.
+
+Create a signing verification step using Windows signature inspection.
+
+The final report must distinguish:
+
+```text
+Unsigned development installer generated
+```
+
+from:
+
+```text
+Production-signed installer generated and verified
+```
+
+Do not bypass enterprise security through `Unblock-File`, registry changes, policy changes, or antivirus exclusions.
+
+---
+
+# 29. Update System
+
+Prepare or implement a secure updater compatible with the selected installer.
+
+Prefer a standard Electron update implementation such as `electron-updater` when it fits the final packaging choice.
+
+The updater must:
+
+* Use a trusted HTTPS endpoint.
+* Support a stable release channel.
+* Compare semantic versions.
+* Verify update signatures or trusted metadata.
+* Download in the background only after policy allows it.
+* Show release notes.
+* Allow user-controlled restart.
+* Close the daemon safely.
+* Prevent active agent work from being corrupted.
+* Preserve data.
+* Apply database migrations after backup.
+* Recover from interrupted updates.
+* Avoid running two application versions simultaneously.
+* Report update failures clearly.
+
+The repository is private, so do not assume public GitHub Releases can be accessed anonymously.
+
+Support a configurable release provider or document the exact authentication-safe update strategy.
+
+Do not embed a permanent GitHub access token inside the application.
+
+When a full updater cannot be safely completed without release infrastructure, implement the complete packaging-side preparation and document the remaining external publishing step.
+
+---
+
+# 30. Build System
+
+Create clear scripts such as:
+
+```text
+npm run build
+npm run package
+npm run package:installer
+npm run package:portable
+npm run release:windows
+npm run verify:installer
+```
+
+Exact names may differ, but responsibilities must be clear.
+
+The complete Windows release command must:
+
+1. Clean previous release staging directories.
+2. Validate the version.
+3. Install locked dependencies.
+4. Run formatting checks.
+5. Run lint.
+6. Run type checking.
+7. Run tests.
+8. Build workspace packages.
+9. Build the renderer.
+10. Build Electron main and preload.
+11. Build the production daemon entry.
+12. Package native dependencies correctly.
+13. Package the VS Code extension.
+14. Package bundled documentation.
+15. Generate the Windows installer.
+16. Generate an optional portable package if supported.
+17. Generate SHA-256 checksums.
+18. Verify packaged file structure.
+19. Run packaged-app smoke tests.
+20. Produce a release manifest.
+
+Do not require manual copying of files into installer directories.
+
+Use the lockfile and deterministic package versions.
+
+---
+
+# 31. CI/CD
+
+Update the existing GitHub Actions workflow.
+
+Keep existing validation on Windows and Linux where applicable.
+
+Add a Windows release job that:
+
+* Uses a clean Windows runner.
+* Installs the supported Node build version.
+* Runs `npm ci`.
+* Runs all required quality checks.
+* Builds the application.
+* Generates the installer.
+* Generates the VSIX.
+* Generates checksums.
+* Runs packaged smoke tests.
+* Uploads release artifacts.
+* Supports signing when signing secrets are available.
+* Clearly labels unsigned artifacts when they are not.
+
+Do not make the release build depend on:
+
+* Jamie’s local filesystem.
+* Existing local `node_modules`.
+* `%LOCALAPPDATA%` content.
+* Existing Codex authentication.
+* Existing GitHub authentication.
+* Existing Electron cache.
+* Existing application database.
+
+Tests requiring external authentication must use deterministic fakes or be marked as explicit external integration tests.
+
+---
+
+# 32. Testing Requirements
+
+Preserve all existing tests and add tests for the new production behavior.
+
+## Unit tests
+
+Add coverage for:
+
+* Daemon manager state machine.
+* Production path resolution.
+* Packaged versus development diagnostics.
+* Dependency manifest validation.
+* Managed-tool path selection.
+* Version synchronization.
+* Download URL allowlisting.
+* Checksum validation.
+* Signature-result handling.
+* Archive traversal protection.
+* Setup-state migration.
+* Retry limits.
+* Error-code mapping.
+* Secret redaction.
+* Stale daemon metadata detection.
+* Single-instance argument forwarding.
+
+## Integration tests
+
+Add coverage for:
+
+* Electron main starting the daemon.
+* Daemon health verification.
+* Renderer receiving a valid connection.
+* Database creation in a temporary data directory.
+* Existing database migration.
+* Native keyring load in packaged mode.
+* Managed tool detection.
+* Missing Git.
+* Existing compatible Git.
+* Existing incompatible Git.
+* Missing Codex.
+* Codex available but unauthenticated.
+* Optional VS Code missing.
+* Optional GitHub CLI missing.
+* Ollama unavailable.
+* Interrupted download.
+* Checksum mismatch.
+* Insufficient disk space.
+* Failed daemon startup.
+* Daemon crash and bounded restart.
+* Clean application shutdown.
+* No orphan processes.
+
+## Packaged application tests
+
+On a clean Windows environment:
+
+1. Install the generated installer.
+2. Confirm no separate Node.js installation is required.
+3. Launch from the Start menu.
+4. Verify the daemon starts automatically.
+5. Verify the UI connects.
+6. Verify the database is created.
+7. Verify Setup & Connections loads.
+8. Verify missing integrations are reported correctly.
+9. Close the app.
+10. Verify no application-owned child processes remain.
+11. Relaunch.
+12. Verify setup state and database persist.
+13. Run repair mode.
+14. Uninstall.
+15. Verify application binaries are removed.
+16. Verify user data is preserved by default.
+17. Verify optional user-data removal when selected.
+
+## Functional workflow test
+
+Use deterministic fake providers where external accounts are unavailable.
+
+Test:
+
+1. Select a temporary Git repository.
+2. Inspect the workspace.
+3. Submit a prompt.
+4. Receive material questions.
+5. Answer questions.
+6. Review the revised prompt.
+7. Reject once.
+8. Confirm a new revision.
+9. Approve.
+10. Create a worktree.
+11. Execute a fake Codex turn.
+12. Run configured tests.
+13. Generate evidence.
+14. Restart the application.
+15. Verify run history remains available.
+
+## Clean-machine requirements
+
+The primary clean-machine test must begin without:
+
+* Node.js.
+* npm.
+* Source repository.
+* Development Electron runtime.
+* Git.
+* Codex CLI.
+* VS Code.
+* GitHub CLI.
+* Ollama.
+
+The desktop shell must still install and launch.
+
+The setup wizard must then accurately guide or install the tools needed for selected workflows.
+
+---
+
+# 33. UI Requirements
+
+Preserve the existing dark visual style and application navigation.
+
+Improve the current placeholder or incomplete sections where needed, especially:
+
+* Run History.
+* Project Configuration.
+* Settings.
+* Help.
+* Setup & Connections.
+
+## Setup & Connections
+
+Replace command-only repair instructions with actionable controls:
+
+* Check again.
+* Install.
+* Repair.
+* Authenticate.
+* Select existing executable.
+* Use managed version.
+* Use system version.
+* Open documentation.
+* View logs.
+* Skip optional integration.
+
+Raw commands may remain inside an advanced details panel, but they must not be the only user path.
+
+## Settings
+
+Add settings for:
+
+* Start application on Windows login.
+* Minimize to tray, if implemented.
+* Update channel.
+* Automatic update checks.
+* Log level.
+* Data location, where safely configurable.
+* Git executable selection.
+* Codex executable selection.
+* VS Code executable selection.
+* GitHub CLI executable selection.
+* Ollama endpoint.
+* Managed-tool preference.
+* Diagnostics export.
+* Repair mode.
+* Reset non-secret settings.
+
+## Help
+
+Bundle and display relevant documentation without requiring the source repository.
+
+Include:
+
+* First-run guide.
+* Codex setup.
+* Git setup.
+* VS Code extension.
+* GitHub setup.
+* Ollama setup.
+* Provider setup.
+* Security model.
+* Troubleshooting.
+* Data locations.
+* Update instructions.
+* Uninstall behavior.
+
+---
+
+# 34. Application Icon and Metadata
+
+Add production application assets if they are not present.
+
+Provide:
+
+* `.ico` file with standard Windows icon sizes.
+* Installer icon.
+* Application executable icon.
+* Uninstaller icon where supported.
+* Taskbar icon.
+* Start menu icon.
+
+Do not use the default Electron icon in a release build.
+
+Set correct metadata:
+
+* Product name: `Personal Codex Agent`
+* Internal application ID.
+* Company or publisher field through configuration.
+* Description.
+* Copyright.
+* Version.
+* Executable filename.
+
+Keep publisher configurable until the legal publisher name is confirmed.
+
+Do not invent a legal company name.
+
+---
+
+# 35. Security Review
+
+Perform a focused security review after implementation.
+
+Review:
+
+* Renderer sandbox.
+* Context isolation.
+* Preload API.
+* IPC validation.
+* External navigation.
+* Loopback daemon binding.
+* Bearer token handling.
+* Token file permissions.
+* Daemon process ownership.
+* Download allowlists.
+* Installer validation.
+* Update trust.
+* Native module packaging.
+* Credential Manager usage.
+* Secret redaction.
+* Command execution.
+* Git operations.
+* Workspace boundaries.
+* Symlinks and junctions.
+* Path traversal.
+* Archive extraction.
+* Temporary directories.
+* DLL search order.
+* Managed executable replacement.
+* Tool version downgrade attacks.
+* Project-content prompt injection.
+* Untrusted repository scripts.
+* Destructive command approval.
+
+Critical and high-severity findings must be fixed before completion.
+
+Do not weaken existing safeguards to make packaging easier.
+
+---
+
+# 36. Backward Compatibility
+
+Preserve:
+
+* Existing project configuration files.
+* Existing `.agent/project.yml`.
+* Existing `.agent-runs`.
+* Existing SQLite run data.
+* Existing provider configurations.
+* Existing credential references.
+* Existing Codex provider behavior.
+* Existing GitHub adapter behavior.
+* Existing VS Code extension behavior.
+* Existing API contracts where practical.
+* Existing tests.
+* Existing development workflow.
+
+Development mode must continue to work through:
+
+```powershell
+npm run dev
+```
+
+The installed application and development application should share core code but use distinct runtime configuration.
+
+Do not make the developer workflow dependent on an installed production copy.
+
+---
+
+# 37. Documentation Updates
+
+Update:
+
+```text
+README.md
+CHANGELOG.md
+RELEASE_NOTES.md
+docs/architecture.md
+docs/developer-guide.md
+docs/user-setup-guide.md
+docs/security-model.md
+docs/testing-strategy.md
+docs/troubleshooting.md
+docs/codex-integration.md
+docs/local-models.md
+```
+
+Add documentation for:
+
+* Installer generation.
+* Installed-app architecture.
+* Production daemon lifecycle.
+* Managed tools.
+* First-run setup.
+* Repair mode.
+* Updates.
+* Signing.
+* Release procedure.
+* Clean-machine verification.
+* Uninstall behavior.
+* Application-data migration.
+
+Remove instructions that imply an end user must run:
+
+```powershell
+npm run dev
+.\scripts\bootstrap.ps1
+```
+
+Keep those instructions only in clearly labeled developer documentation.
+
+The main README should distinguish:
+
+```text
+End-user installation
+Developer setup
+```
+
+---
+
+# 38. Required Output Artifacts
+
+At completion, generate or prepare:
+
+```text
+artifacts/installers/Personal-Codex-Agent-Setup-<version>-x64.exe
+artifacts/portable/Personal-Codex-Agent-<version>-x64.zip
+artifacts/extensions/personal-codex-agent-vscode-<version>.vsix
+artifacts/SHA256SUMS.txt
+artifacts/release-manifest.json
+artifacts/test-reports/
+artifacts/security-review.md
+artifacts/packaging-report.md
+```
+
+The portable package is optional when it cannot safely support updates or managed dependencies. If omitted, explain why.
+
+Do not include the source repository’s current `.git`, databases, logs, or `.agent-runs` in release artifacts.
+
+---
+
+# 39. Acceptance Criteria
+
+The task is not complete until the applicable criteria below pass.
+
+## Installation
+
+* One installer is generated.
+* The installer runs without requiring Node.js.
+* Per-user installation works.
+* Start menu shortcut works.
+* Optional desktop shortcut works.
+* The app appears in Windows installed apps.
+* Normal uninstall works.
+* Upgrade preserves user data.
+
+## Application startup
+
+* Launching the installed `.exe` automatically starts the bundled daemon.
+* The daemon binds only to `127.0.0.1`.
+* A random port is used.
+* A random token is used.
+* The renderer receives the connection securely.
+* The app waits for a real health check.
+* Startup failure has recovery actions.
+* A second application instance does not start a second daemon.
+
+## Runtime independence
+
+* No global Node.js is required.
+* No global npm is required.
+* No source repository is required.
+* No PowerShell command is required for normal use.
+* No development Electron installation is required.
+
+## Data
+
+* Existing `%LOCALAPPDATA%\PersonalCodexAgent` data remains usable.
+* Existing SQLite data is preserved.
+* Existing credentials remain protected.
+* Database migrations are transactional.
+* Application upgrades do not erase run history.
+
+## Integrations
+
+* Git can be detected and installed through the app.
+* Codex can be detected and configured through the app.
+* Codex authentication can be verified.
+* VS Code remains optional.
+* The bundled VSIX can be installed through the app.
+* GitHub CLI remains optional.
+* Ollama remains optional.
+* Large models are never downloaded without approval.
+
+## Security
+
+* Renderer sandboxing remains enabled.
+* Node integration remains disabled.
+* Preload API remains narrow.
+* Secrets are not written to logs.
+* Downloads are verified.
+* Untrusted URLs cannot be installed.
+* The daemon is not exposed to the LAN.
+* Native keyring works from the packaged app.
+* The app does not permanently run as administrator.
+* Enterprise signing requirements are not bypassed.
+
+## Process management
+
+* Closing the app closes the daemon.
+* Closing the app closes application-owned Codex processes.
+* No application-owned ports remain open.
+* Daemon crashes are handled with bounded retries.
+* Stale metadata is handled safely.
+* Unrelated system processes are never killed.
+
+## Release quality
+
+* Formatting passes.
+* Lint passes.
+* Type checking passes.
+* Existing tests pass.
+* New tests pass.
+* Build passes.
+* Installer generation passes.
+* Packaged smoke test passes on a clean Windows VM.
+* SHA-256 checksums are generated.
+* Signing status is reported truthfully.
+
+---
+
+# 40. Mandatory Final Validation
+
+Perform the following final validation where the environment permits:
+
+1. Start from a clean checkout.
+2. Run `npm ci`.
+3. Run formatting verification.
+4. Run lint.
+5. Run TypeScript checks.
+6. Run all tests.
+7. Build all packages.
+8. Generate the VSIX.
+9. Generate the installer.
+10. Generate checksums.
+11. Install on a clean Windows VM.
+12. Confirm Node.js is not installed.
+13. Launch the installed app.
+14. Confirm the daemon starts.
+15. Confirm the renderer connects.
+16. Confirm the database initializes.
+17. Confirm Setup & Connections opens.
+18. Confirm missing Git and Codex are handled.
+19. Install or simulate a managed dependency.
+20. Restart the app.
+21. Confirm state persistence.
+22. Test a representative agent workflow.
+23. Close the app.
+24. Confirm process cleanup.
+25. Test repair mode.
+26. Test upgrade behavior.
+27. Test uninstall.
+28. Inspect logs for secrets.
+29. Verify hashes.
+30. Verify signatures when signing credentials are available.
+
+Do not report the desktop release as verified solely because TypeScript compilation or Electron packaging succeeded.
+
+---
+
+# 41. Required Implementation Reports
+
+Create a dated implementation directory such as:
+
+```text
+.agent-runs/desktop-production-<date>/
+```
+
+Include:
+
+```text
+baseline-audit.md
+architecture-decision.md
+implementation-plan.md
+changed-files.md
+daemon-lifecycle-report.md
+dependency-packaging-report.md
+installer-report.md
+managed-tools-report.md
+migration-report.md
+security-review.md
+test-report.md
+clean-machine-test.md
+signing-report.md
+known-limitations.md
+final-report.json
+final-report.md
+```
+
+Do not include secrets in these reports.
+
+---
+
+# 42. Final Response Format
+
+At the end, provide:
+
+## Repository assessment
+
+Explain the original application and packaging limitations.
+
+## Architecture implemented
+
+Explain how the installed Electron app starts and supervises the daemon.
+
+## Runtime packaging
+
+Explain how daemon dependencies and native keyring support are packaged.
+
+## Installer
+
+State the installer technology and exact output path.
+
+## First-run setup
+
+Explain which dependencies are bundled, required, managed, system-detected, or optional.
+
+## Managed installations
+
+Explain how Git, Codex, VS Code extension, GitHub CLI, and Ollama are handled.
+
+## Security
+
+Explain download verification, credential storage, IPC security, loopback authentication, and signing status.
+
+## Testing
+
+List every command run and its real result.
+
+## Artifacts
+
+List exact artifact paths and SHA-256 values.
+
+## External blockers
+
+Clearly identify unavailable signing certificates, release infrastructure, enterprise allowlisting, external authentication, or unavailable Windows VM testing.
+
+## Manual verification
+
+Provide precise steps to install and test the release.
+
+Do not state that something works unless it was actually tested.
+
+---
+
+# 43. Execution Instructions
+
+Begin by auditing the supplied repository and confirming the current packaging gap.
+
+Then create an implementation plan based on the existing architecture.
+
+Continue through implementation. Do not stop after writing the plan.
+
+Make changes in small, reviewable stages:
+
+1. Centralize versioning.
+2. Create production runtime path management.
+3. Build the production daemon manager.
+4. Integrate daemon startup into Electron main.
+5. Add startup and failure UI.
+6. Fix packaged diagnostics.
+7. Package daemon runtime dependencies.
+8. Verify native keyring packaging.
+9. Add the dependency manifest.
+10. Add managed-tool installation services.
+11. Upgrade Setup & Connections.
+12. Add repair mode.
+13. Add installer configuration.
+14. Add update preparation.
+15. Add tests.
+16. Update CI.
+17. Update documentation.
+18. Build the installer.
+19. Run packaged validation.
+20. Produce reports.
+
+Reuse the existing:
+
+* Command resolver.
+* Process runner.
+* Security boundaries.
+* Provider service.
+* Database.
+* Credential store.
+* Development supervisor.
+* Doctor logic.
+* Setup UI.
+* VS Code extension packaging.
+* Testing infrastructure.
+
+Refactor shared logic rather than copying it.
+
+The final application must be a real, standalone Windows desktop product—not a development repository hidden behind an Electron icon.
