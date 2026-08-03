@@ -5,6 +5,7 @@ export * from "./command-resolver.js";
 export const runStates = [
   "IDLE",
   "RUN_CREATED",
+  "REPOSITORY_DISCOVERY",
   "WORKSPACE_DISCOVERY",
   "REPOSITORY_ANALYSIS",
   "PROMPT_REVIEW",
@@ -40,7 +41,9 @@ export const runStates = [
   "STAGING_DEPLOYMENT",
   "STAGING_SMOKE_TEST",
   "MERGING",
+  "MERGE",
   "PRODUCTION_DEPLOYMENT",
+  "PRODUCTION_VALIDATION",
   "PRODUCTION_SMOKE_TEST",
   "VERSIONING",
   "STAGING_VALIDATION",

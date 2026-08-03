@@ -2,14 +2,19 @@ import { randomUUID } from "node:crypto";
 import type { AgentDatabase } from "@agent/database";
 import {
   type AgentRun,
+  type ApprovedStepPlan,
   type PromptRevision,
   type Question,
+  type StepCompletionGate,
+  type StepState,
   type TimelineEvent,
   type WorkspaceAnalysis
 } from "@agent/shared";
 import { PromptReviewer } from "./prompt-reviewer.js";
 import { ReportGenerator } from "./reporting.js";
 import { WorkflowStateMachine } from "./state-machine.js";
+import { StepGateEngine, type StepExecutionSnapshot } from "./step-gate.js";
+import { StepPlanService } from "./step-plan.js";
 import { WorkspaceInspector } from "./workspace.js";
 
 export interface RunView {
@@ -18,18 +23,25 @@ export interface RunView {
   questions: Question[];
   revisions: PromptRevision[];
   events: TimelineEvent[];
+  stepPlan?: ApprovedStepPlan;
+  stepGates?: StepCompletionGate[];
 }
 
 export class RunService {
   private analyses = new Map<string, WorkspaceAnalysis>();
   private reportDirectories = new Map<string, string>();
+  private readonly stepPlans: StepPlanService;
+  private readonly stepGates: StepGateEngine;
 
   constructor(
     private readonly database: AgentDatabase,
     private readonly inspector = new WorkspaceInspector(),
     private readonly reviewer = new PromptReviewer(),
     private readonly reports = new ReportGenerator()
-  ) {}
+  ) {
+    this.stepPlans = new StepPlanService(database, reports);
+    this.stepGates = new StepGateEngine(this.stepPlans);
+  }
 
   async create(workspacePath: string, prompt: string): Promise<RunView> {
     const run: AgentRun = {
@@ -151,12 +163,14 @@ export class RunService {
 
   get(runId: string): RunView {
     const run = this.requireRun(runId);
+    const stepPlan = this.stepPlans.plan(runId);
     return {
       run,
       ...(this.analyses.get(runId) ? { analysis: this.analyses.get(runId)! } : {}),
       questions: this.database.questions(runId),
       revisions: this.database.revisions(runId),
-      events: this.database.events(runId)
+      events: this.database.events(runId),
+      ...(stepPlan ? { stepPlan, stepGates: this.stepPlans.gates(runId) } : {})
     };
   }
 
@@ -173,6 +187,56 @@ export class RunService {
     const run = this.requireRun(runId);
     await this.transition(run, state, message, evidence);
     return this.get(runId);
+  }
+
+  async initializeStepPlan(plan: ApprovedStepPlan): Promise<RunView> {
+    const run = this.requireRun(plan.runId);
+    if (!run.approvedRevision || !run.approvedAt) {
+      throw new Error("A frozen prompt revision is required before initializing a step plan");
+    }
+    if (plan.approvedRevision !== run.approvedRevision) {
+      throw new Error("Step plan revision must match the frozen prompt revision");
+    }
+    await this.stepPlans.initialize(plan, run.workspacePath);
+    this.recordStepEvent(run, "Step plan initialized; only the first step is ready", {
+      state: "STEP_READY",
+      stepId: plan.steps[0]!.id
+    });
+    return this.get(run.id);
+  }
+
+  advanceStep(
+    runId: string,
+    stepId: string,
+    expectedState: StepState,
+    targetState: StepState
+  ): RunView {
+    const run = this.requireRun(runId);
+    this.stepGates.transition(runId, stepId, expectedState, targetState);
+    this.recordStepEvent(run, `Step ${stepId} transitioned to ${targetState}`, {
+      stepId,
+      state: targetState
+    });
+    return this.get(runId);
+  }
+
+  recoverStepExecution(runId: string): StepExecutionSnapshot {
+    const run = this.requireRun(runId);
+    const before = this.stepGates.snapshot(runId);
+    const recovered = this.stepGates.recover(runId);
+    const beforeState = before.activeStep
+      ? before.gates.find((gate) => gate.stepId === before.activeStep?.id)?.state
+      : null;
+    const afterState = recovered.activeStep
+      ? recovered.gates.find((gate) => gate.stepId === recovered.activeStep?.id)?.state
+      : null;
+    if (beforeState !== afterState) {
+      this.recordStepEvent(run, "Recovered the next ready step from durable state", {
+        stepId: recovered.activeStep?.id ?? null,
+        state: afterState
+      });
+    }
+    return recovered;
   }
 
   async finish(
@@ -202,9 +266,13 @@ export class RunService {
 
   restore(workspaceAnalyses: Map<string, WorkspaceAnalysis> = new Map()): AgentRun[] {
     for (const [runId, analysis] of workspaceAnalyses) this.analyses.set(runId, analysis);
-    return this.database
+    const activeRuns = this.database
       .listRuns()
       .filter((run) => !["SUCCESS", "FAILED", "CANCELLED"].includes(run.state));
+    for (const run of activeRuns) {
+      if (this.stepPlans.plan(run.id)) this.recoverStepExecution(run.id);
+    }
+    return activeRuns;
   }
 
   private async createRevision(run: AgentRun, analysis: WorkspaceAnalysis): Promise<void> {
@@ -242,6 +310,18 @@ export class RunService {
       ...(evidence ? { evidence } : {})
     };
     this.database.addEvent(event);
+  }
+
+  private recordStepEvent(run: AgentRun, message: string, evidence: Record<string, unknown>): void {
+    this.database.addEvent({
+      runId: run.id,
+      operationId: randomUUID(),
+      timestamp: new Date().toISOString(),
+      state: run.state,
+      status: "passed",
+      message,
+      evidence
+    });
   }
 
   private requireRun(runId: string): AgentRun {

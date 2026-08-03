@@ -125,7 +125,12 @@ export class StepPlanService {
     for (const [index, step] of parsedPlan.steps.entries()) {
       const state: StepState = index === 0 ? "STEP_READY" : "STEP_LOCKED";
       this.database.savePlanStep(parsedPlan.runId, step, state);
-      const gate = createPendingCompletionGate(parsedPlan.runId, step.id, state, parsedPlan.createdAt);
+      const gate = createPendingCompletionGate(
+        parsedPlan.runId,
+        step.id,
+        state,
+        parsedPlan.createdAt
+      );
       this.database.saveStepCompletionGate(gate);
       await this.reports.initializeStepEvidence(workspacePath, parsedPlan.runId, step, gate);
     }
@@ -142,14 +147,17 @@ export class StepPlanService {
 
   saveGate(gate: StepCompletionGate): void {
     const { parsed, planStep } = this.validateGate(gate);
+    const storedGate = this.gates(parsed.runId).find(
+      (candidate) => candidate.stepId === parsed.stepId
+    );
+    if (storedGate && storedGate.state !== parsed.state) {
+      throw new Error("Step state changes must use the chronological StepGateEngine");
+    }
     this.database.saveStepCompletionGate(parsed);
     this.database.savePlanStep(parsed.runId, planStep, parsed.state);
   }
 
-  transitionGate(
-    gate: StepCompletionGate,
-    expectedState: StepCompletionGate["state"]
-  ): void {
+  transitionGate(gate: StepCompletionGate, expectedState: StepCompletionGate["state"]): void {
     const { parsed } = this.validateGate(gate);
     if (!this.database.transitionStepCompletionGate(parsed, expectedState)) {
       throw new Error(

@@ -44,6 +44,13 @@ SQLite records the last durable state. Startup lists interrupted runs for recove
 be resumed after a fresh preflight; a partially running shell or Codex turn is never assumed to have
 succeeded.
 
+`StepGatedWorkflowStateMachine` adds the explicit Phase 3 top-level sequence from plan generation
+through final reporting without weakening the legacy orchestrator path while its end-to-end migration
+is completed. `StepGateEngine` enforces the per-step sequence. It permits only the first incomplete
+step to enter a writable state, uses a compare-and-swap update on the durable gate row, requires the
+full completion gate before `STEP_COMPLETE`, and unlocks only the immediate next step. A restart
+reloads the existing active per-step state; it does not infer completion or skip validation.
+
 ## Approved plans and step evidence
 
 An approved implementation plan is a versioned, Zod-validated contract bound to a run and frozen
@@ -52,6 +59,11 @@ dependencies must exist, and dependency cycles are rejected. The database persis
 step state, completion gates, amendments, terminal operations, runtime errors, and evidence. A gate
 can complete only when every applicable criterion has passed with evidence; a later step cannot start
 while any earlier step is incomplete.
+
+`RunService` exposes the gated-run boundary: a frozen-revision-matching plan may be initialized,
+then callers must provide both the expected and target per-step state to advance it. Direct gate
+writes can update evidence but cannot change a step state, preventing an untrusted caller from
+unlocking a later step outside the gate engine.
 
 Run reports retain their existing flat artifacts and add a non-destructive per-step layout under
 `.agent-runs/<run-id>/steps/<order>-<step-id>`. The frozen plan is recorded as both

@@ -139,7 +139,42 @@ const migrations = [
      id TEXT PRIMARY KEY, run_id TEXT NOT NULL, step_id TEXT NOT NULL, signature TEXT NOT NULL,
      status TEXT NOT NULL, last_seen_at TEXT NOT NULL, payload_json TEXT NOT NULL,
      FOREIGN KEY(run_id, step_id) REFERENCES approved_plan_steps(run_id, step_id)
-   );`
+   );`,
+  `UPDATE approved_plan_steps
+   SET state = CASE state
+     WHEN 'PENDING' THEN 'STEP_LOCKED'
+     WHEN 'READY' THEN 'STEP_READY'
+     WHEN 'IN_PROGRESS' THEN 'STEP_CONTEXT_ANALYSIS'
+     WHEN 'CORRECTION_REQUIRED' THEN 'STEP_RUNTIME_CORRECTION'
+     WHEN 'COMPLETE' THEN 'STEP_COMPLETE'
+     WHEN 'BLOCKED' THEN 'STEP_BLOCKED'
+     ELSE state
+   END
+   WHERE state IN ('PENDING', 'READY', 'IN_PROGRESS', 'CORRECTION_REQUIRED', 'COMPLETE', 'BLOCKED');
+   UPDATE step_completion_gates
+   SET state = CASE state
+         WHEN 'PENDING' THEN 'STEP_LOCKED'
+         WHEN 'READY' THEN 'STEP_READY'
+         WHEN 'IN_PROGRESS' THEN 'STEP_CONTEXT_ANALYSIS'
+         WHEN 'CORRECTION_REQUIRED' THEN 'STEP_RUNTIME_CORRECTION'
+         WHEN 'COMPLETE' THEN 'STEP_COMPLETE'
+         WHEN 'BLOCKED' THEN 'STEP_BLOCKED'
+         ELSE state
+       END,
+       payload_json = json_set(
+         payload_json,
+         '$.state',
+         CASE state
+           WHEN 'PENDING' THEN 'STEP_LOCKED'
+           WHEN 'READY' THEN 'STEP_READY'
+           WHEN 'IN_PROGRESS' THEN 'STEP_CONTEXT_ANALYSIS'
+           WHEN 'CORRECTION_REQUIRED' THEN 'STEP_RUNTIME_CORRECTION'
+           WHEN 'COMPLETE' THEN 'STEP_COMPLETE'
+           WHEN 'BLOCKED' THEN 'STEP_BLOCKED'
+           ELSE state
+         END
+       )
+   WHERE state IN ('PENDING', 'READY', 'IN_PROGRESS', 'CORRECTION_REQUIRED', 'COMPLETE', 'BLOCKED');`
 ];
 
 export class AgentDatabase {
@@ -577,9 +612,7 @@ export class AgentDatabase {
         return false;
       }
       const stepUpdate = this.raw
-        .prepare(
-          `UPDATE approved_plan_steps SET state=? WHERE run_id=? AND step_id=?`
-        )
+        .prepare(`UPDATE approved_plan_steps SET state=? WHERE run_id=? AND step_id=?`)
         .run(parsed.state, parsed.runId, parsed.stepId);
       if (stepUpdate.changes !== 1) {
         throw new Error(`Plan step not found for gate transition: ${parsed.stepId}`);

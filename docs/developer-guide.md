@@ -17,6 +17,13 @@ payloads secret-free. Per-step evidence is initialized under the run's `.agent-r
 must be preserved on recovery rather than overwritten. Frozen plans have both JSON and Markdown
 artifacts so the same approved execution contract is machine-readable and user-inspectable.
 
+Advance a persisted plan through `RunService.advanceStep`, never by writing a gate record directly.
+The caller supplies the current and requested step state; `StepGateEngine` rejects stale writers,
+skipped stages, later locked steps, and a completion transition without persisted applicable
+evidence. Use `RunService.recoverStepExecution` during restart handling to reload the active step
+without advancing it. Test both the strict Phase 3 top-level graph and the per-step graph whenever
+state behavior changes.
+
 Build outputs:
 
 ```powershell

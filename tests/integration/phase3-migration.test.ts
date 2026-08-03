@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { AgentDatabase } from "@agent/database";
-import { StepPlanService } from "@agent/core";
+import { StepGateEngine, StepPlanService } from "@agent/core";
 import type { ApprovedStepPlan } from "@agent/shared";
 
 const timestamp = "2026-07-30T13:00:00.000Z";
@@ -112,10 +112,10 @@ describe("Phase 2 to Phase 3 database migration", () => {
     await service.initialize(plan, directory);
     const inProgressGate = {
       ...service.gates("legacy-run")[0]!,
-      state: "IN_PROGRESS" as const,
+      state: "STEP_CONTEXT_ANALYSIS" as const,
       updatedAt: timestamp
     };
-    service.saveGate(inProgressGate);
+    service.transitionGate(inProgressGate, "STEP_READY");
     service.saveAmendment({
       id: "amendment-1",
       runId: "legacy-run",
@@ -193,27 +193,46 @@ describe("Phase 2 to Phase 3 database migration", () => {
     await writeFile(contextPath, "preserve this evidence", "utf8");
     await service.initialize(plan, directory);
     expect(await readFile(contextPath, "utf8")).toBe("preserve this evidence");
-    expect(migrated.stepCompletionGates("legacy-run")[0]?.state).toBe("IN_PROGRESS");
-    expect(migrated.planSteps("legacy-run")[0]?.state).toBe("IN_PROGRESS");
+    expect(migrated.stepCompletionGates("legacy-run")[0]?.state).toBe("STEP_CONTEXT_ANALYSIS");
+    expect(migrated.planSteps("legacy-run")[0]?.state).toBe("STEP_CONTEXT_ANALYSIS");
     const changedPlan = structuredClone(plan);
     changedPlan.steps[0]!.title = "Changed after approval";
     await expect(service.initialize(changedPlan, directory)).rejects.toThrow(/cannot be replaced/i);
     expect(migrated.stepEvidence("legacy-run")).toHaveLength(1);
     migrated.close();
 
+    const phaseTwoStepState = new DatabaseSync(path);
+    phaseTwoStepState.exec("DELETE FROM schema_migrations WHERE version=4");
+    phaseTwoStepState
+      .prepare("UPDATE approved_plan_steps SET state='IN_PROGRESS' WHERE run_id=? AND step_id=?")
+      .run("legacy-run", "schema");
+    phaseTwoStepState
+      .prepare(
+        `UPDATE step_completion_gates
+         SET state='IN_PROGRESS', payload_json=REPLACE(payload_json, 'STEP_CONTEXT_ANALYSIS', 'IN_PROGRESS')
+         WHERE run_id=? AND step_id=?`
+      )
+      .run("legacy-run", "schema");
+    phaseTwoStepState.close();
+
     const reopened = new AgentDatabase(path);
-    expect(new StepPlanService(reopened).plan("legacy-run")).toEqual(plan);
+    const reopenedPlans = new StepPlanService(reopened);
+    const reopenedGates = new StepGateEngine(reopenedPlans);
+    expect(reopenedPlans.plan("legacy-run")).toEqual(plan);
     expect(reopened.getRun("legacy-run")?.state).toBe("AWAITING_APPROVAL");
     expect(reopened.planSteps("legacy-run")).toHaveLength(1);
     expect(reopened.stepCompletionGates("legacy-run")).toHaveLength(1);
-    expect(reopened.stepCompletionGates("legacy-run")[0]?.state).toBe("IN_PROGRESS");
-    expect(reopened.planSteps("legacy-run")[0]?.state).toBe("IN_PROGRESS");
+    expect(reopened.stepCompletionGates("legacy-run")[0]?.state).toBe("STEP_CONTEXT_ANALYSIS");
+    expect(reopened.planSteps("legacy-run")[0]?.state).toBe("STEP_CONTEXT_ANALYSIS");
     expect(reopened.stepAmendments("legacy-run")).toHaveLength(1);
     expect(reopened.stepTerminalOperations("legacy-run")).toHaveLength(1);
     expect(reopened.stepRuntimeErrors("legacy-run")).toHaveLength(1);
+    const recovered = reopenedGates.recover("legacy-run");
+    expect(recovered.activeStep?.id).toBe("schema");
+    expect(recovered.gates[0]?.state).toBe("STEP_CONTEXT_ANALYSIS");
     expect(
       reopened.raw.prepare("SELECT version FROM schema_migrations ORDER BY version").all()
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
     reopened.close();
   });
 });

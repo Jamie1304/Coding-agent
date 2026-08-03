@@ -120,9 +120,15 @@ export class StepGateEngine {
   }
 
   private unlockNextStep(plan: ApprovedStepPlan, completedStepId: string, updatedAt: string): void {
+    const completedStep = plan.steps.find((step) => step.id === completedStepId);
+    if (!completedStep) {
+      throw new InvalidStepTransitionError(
+        `Completed step is not in the frozen plan: ${completedStepId}`
+      );
+    }
     const nextStep = [...plan.steps]
       .sort((left, right) => left.order - right.order)
-      .find((step) => step.order === plan.steps.find((candidate) => candidate.id === completedStepId)!.order + 1);
+      .find((step) => step.order === completedStep.order + 1);
     if (!nextStep) return;
     const nextGate = this.plans.gates(plan.runId).find((gate) => gate.stepId === nextStep.id);
     if (!nextGate) throw new InvalidStepTransitionError(`Next step is missing its completion gate`);

@@ -41,7 +41,7 @@ function plan(): ApprovedStepPlan {
 function complete(gate: StepCompletionGate): StepCompletionGate {
   return {
     ...gate,
-    state: "COMPLETE",
+    state: "STEP_COMPLETE",
     blockingRequirements: [],
     criteria: Object.fromEntries(
       Object.keys(gate.criteria).map((criterion) => [
@@ -69,7 +69,7 @@ describe("approved step plan contracts", () => {
 
   it("requires evidence for applicable gate criteria and blocks later steps chronologically", () => {
     const approvedPlan = plan();
-    const pending = createPendingCompletionGate("run-1", "step-one", timestamp);
+    const pending = createPendingCompletionGate("run-1", "step-one", "STEP_READY", timestamp);
     expect(approvedPlan.steps[0]?.completionEvidence).toEqual([]);
     expect(Object.keys(pending.criteria)).toEqual([
       "scopeAnalysis",
