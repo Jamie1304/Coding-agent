@@ -24,6 +24,7 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:runtime": "vitest run tests/unit/terminal-session.test.ts tests/integration/runtime-supervisor-daemon.test.ts",
     "test:e2e": "vitest run tests/e2e",
     "test:security": "vitest run tests/security",
     "test:coverage": "vitest run --coverage",

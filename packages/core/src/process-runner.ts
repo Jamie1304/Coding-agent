@@ -1,4 +1,6 @@
 import { resolveCommand, runCommandResolution } from "@agent/shared";
+import { stat } from "node:fs/promises";
+import { isAbsolute } from "node:path";
 
 export interface CommandRequest {
   executable: string;
@@ -24,6 +26,7 @@ export interface CommandResult {
 
 export class ProcessRunner {
   async run(request: CommandRequest, signal?: AbortSignal): Promise<CommandResult> {
+    await validateCommandRequest(request);
     const started = performance.now();
     const env = { ...process.env, ...request.env };
     const resolution = await resolveCommand(request.executable, {
@@ -60,5 +63,32 @@ export class ProcessRunner {
       timedOut: result.timedOut,
       truncated: result.truncated
     };
+  }
+}
+
+export async function validateCommandRequest(request: CommandRequest): Promise<void> {
+  if (typeof request.executable !== "string" || !request.executable.trim()) {
+    throw new Error("Command executable is required");
+  }
+  if (
+    !Array.isArray(request.args) ||
+    request.args.some((argument) => typeof argument !== "string")
+  ) {
+    throw new Error("Command arguments must be a string array");
+  }
+  if (!isAbsolute(request.cwd)) throw new Error("Command working directory must be absolute");
+  const details = await stat(request.cwd);
+  if (!details.isDirectory()) throw new Error("Command working directory must be a directory");
+  if (
+    request.timeoutMs !== undefined &&
+    (!Number.isFinite(request.timeoutMs) || request.timeoutMs < 1)
+  ) {
+    throw new Error("Command timeout must be a positive number");
+  }
+  if (
+    request.maxOutputBytes !== undefined &&
+    (!Number.isFinite(request.maxOutputBytes) || request.maxOutputBytes < 1)
+  ) {
+    throw new Error("Command output limit must be a positive number");
   }
 }

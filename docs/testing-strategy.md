@@ -14,6 +14,10 @@ initialized with real Git commits.
   and Electron privilege isolation.
 - Build/package: Vite renderer, Electron main/preload, daemon bundle, VS Code extension bundle/VSIX,
   unsigned Windows directory, and SHA-256 manifest.
+- Runtime supervision: redacted streaming output, warning/error normalization, real exit status and
+  timeout, workspace paths containing spaces, owned child-tree cleanup, log/HTTP readiness, restart,
+  and configured-port release. Terminal-operation snapshots are reloaded from SQLite to ensure no
+  secret reaches persisted evidence.
 
 Run all:
 

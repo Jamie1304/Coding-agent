@@ -474,6 +474,15 @@ export const StepTerminalOperationSchema = z.object({
   stdoutLocator: z.string().nullable(),
   stderrLocator: z.string().nullable(),
   combinedLogLocator: z.string().nullable(),
+  normalizedLog: z
+    .object({
+      stdout: z.string(),
+      stderr: z.string(),
+      combined: z.string(),
+      truncated: z.boolean()
+    })
+    .nullable()
+    .optional(),
   errorsDetected: z.array(StepRuntimeErrorSchema),
   warningsDetected: z.array(StepRuntimeWarningSchema),
   secretRedactionApplied: z.literal(true)

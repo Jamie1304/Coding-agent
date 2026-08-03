@@ -24,6 +24,14 @@ evidence. Use `RunService.recoverStepExecution` during restart handling to reloa
 without advancing it. Test both the strict Phase 3 top-level graph and the per-step graph whenever
 state behavior changes.
 
+Use `TerminalSession` for a long-running runtime command and `RuntimeSupervisor` for an owned
+application process. Supply an executable and argument array, an absolute workspace-bound cwd, a
+positive timeout, and a bounded output limit. `TerminalSession` redacts output before invoking a
+listener or persisting its terminal-operation snapshot; raw process output must never be passed to a
+renderer, report, or evidence payload. The supervisor requires explicit log and/or HTTP readiness,
+stops the owned process tree gracefully before forcing it, confirms configured ports are released,
+and creates a fresh operation ID on restart. Keep process control in core or the daemon.
+
 Build outputs:
 
 ```powershell
