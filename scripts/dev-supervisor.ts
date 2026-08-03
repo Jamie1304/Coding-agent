@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createServer as createTcpServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
 import { AppServerCodexProvider } from "@agent/codex-provider";
@@ -211,11 +212,12 @@ export async function startRenderer(
   repositoryRoot: string,
   preferredPort: number
 ): Promise<{ server: ViteDevServer; url: string }> {
+  const port = await rendererPort(preferredPort);
   const server = await createServer({
     configFile: join(repositoryRoot, "apps", "desktop", "vite.config.ts"),
     server: {
       host: "127.0.0.1",
-      port: preferredPort,
+      port,
       strictPort: false
     },
     clearScreen: false
@@ -227,6 +229,17 @@ export async function startRenderer(
     throw new Error("Vite did not expose a TCP address");
   }
   return { server, url: `http://127.0.0.1:${address.port}` };
+}
+
+async function rendererPort(preferredPort: number): Promise<number> {
+  const probe = createTcpServer();
+  return new Promise((resolvePort) => {
+    probe.once("error", () => resolvePort(0));
+    probe.once("listening", () => {
+      probe.close(() => resolvePort(preferredPort));
+    });
+    probe.listen(preferredPort, "127.0.0.1");
+  });
 }
 
 export function desktopDevelopmentEnvironment(

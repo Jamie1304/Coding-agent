@@ -9,6 +9,29 @@ version and add event-mapping tests. State changes require an explicit graph tra
 the valid, invalid, cancellation, recovery, blocked, and rollback paths. Process changes must retain
 argument arrays, cwd, timeout, output bound, cancellation, and exit-code evidence.
 
+Plan changes must use the shared step-plan schemas and the `StepPlanService`; do not bypass the
+database repositories or write ad hoc evidence. A frozen plan requires contiguous ordered steps,
+non-cyclic dependencies, and at least one acceptance criterion per step. Completion gates require
+evidence for every applicable criterion. Keep terminal-operation arguments redacted and evidence
+payloads secret-free. Per-step evidence is initialized under the run's `.agent-runs` directory and
+must be preserved on recovery rather than overwritten. Frozen plans have both JSON and Markdown
+artifacts so the same approved execution contract is machine-readable and user-inspectable.
+
+Advance a persisted plan through `RunService.advanceStep`, never by writing a gate record directly.
+The caller supplies the current and requested step state; `StepGateEngine` rejects stale writers,
+skipped stages, later locked steps, and a completion transition without persisted applicable
+evidence. Use `RunService.recoverStepExecution` during restart handling to reload the active step
+without advancing it. Test both the strict Phase 3 top-level graph and the per-step graph whenever
+state behavior changes.
+
+Use `TerminalSession` for a long-running runtime command and `RuntimeSupervisor` for an owned
+application process. Supply an executable and argument array, an absolute workspace-bound cwd, a
+positive timeout, and a bounded output limit. `TerminalSession` redacts output before invoking a
+listener or persisting its terminal-operation snapshot; raw process output must never be passed to a
+renderer, report, or evidence payload. The supervisor requires explicit log and/or HTTP readiness,
+stops the owned process tree gracefully before forcing it, confirms configured ports are released,
+and creates a fresh operation ID on restart. Keep process control in core or the daemon.
+
 Build outputs:
 
 ```powershell

@@ -375,12 +375,15 @@ async function validateCandidate(
   }
 }
 
-function kindFor(path: string, platform: NodeJS.Platform): CommandResolution["invocationKind"] {
+export function kindFor(
+  path: string,
+  _platform: NodeJS.Platform
+): CommandResolution["invocationKind"] {
   const extension = extname(path).toLowerCase();
   if (extension === ".cmd") return "cmd";
   if (extension === ".bat") return "bat";
   if (extension === ".js" || extension === ".mjs" || extension === ".cjs") return "script";
-  return platform === "win32" || extension ? "exe" : "script";
+  return "exe";
 }
 
 function knownLocations(command: string, env: NodeJS.ProcessEnv): string[] {

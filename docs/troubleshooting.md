@@ -72,6 +72,19 @@ Press `Ctrl+C` to close the complete owned process tree. If a prior terminal was
 run `npm run dev` again: a dead PID lock is removed automatically. A live lock reports the owning PID
 instead of silently starting a competing instance.
 
+For a supervised validation runtime, use its recorded terminal-operation evidence rather than a raw
+terminal capture. It records redacted output, exit status, readiness, and shutdown details. If its
+configured port remains held after graceful shutdown, the supervisor attempts a forced owned-tree
+cleanup and reports the unreleased port as a failure; do not kill an unowned process merely because it
+uses the same port.
+
+## Repeated runtime error
+
+Do not advance a step past a detected runtime error. Record a hypothesis and bounded correction
+attempt through the runtime-correction controller, then attach focused regression evidence before
+returning to automated test creation. When the retry limit is reached without improvement, the step
+is blocked for independent diagnosis instead of retrying indefinitely.
+
 ## CLI installed but doctor cannot find it
 
 Run `npm run doctor -- --json` and inspect `resolvedPath` and `discoveredBy`. On Windows, the resolver

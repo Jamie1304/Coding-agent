@@ -1,15 +1,32 @@
 import { realpath, stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
-const secretPatterns = [
-  /sk-[a-zA-Z0-9_-]{16,}/g,
-  /gh[opusr]_[a-zA-Z0-9]{20,}/g,
-  /(?:token|password|secret|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi,
-  /authorization:\s*bearer\s+[^\s]+/gi
+const secretPatterns: Array<{ pattern: RegExp; replacement: string }> = [
+  { pattern: /sk-[a-zA-Z0-9_-]{16,}/g, replacement: "[REDACTED]" },
+  { pattern: /gh[opusr]_[a-zA-Z0-9]{20,}/g, replacement: "[REDACTED]" },
+  {
+    pattern: /((?:token|password|secret|api[_-]?key)\s*[:=]\s*)[^\s,;]+/gi,
+    replacement: "$1[REDACTED]"
+  },
+  {
+    pattern: /(authorization:\s*bearer\s+)[^\s]+/gi,
+    replacement: "$1[REDACTED]"
+  },
+  {
+    pattern: /(--(?:token|password|secret|api[_-]?key)(?:=|\s+))[^\s,;]+/gi,
+    replacement: "$1[REDACTED]"
+  }
 ];
 
 export function redactSecrets(value: string): string {
-  return secretPatterns.reduce((text, pattern) => text.replace(pattern, "[REDACTED]"), value);
+  return secretPatterns.reduce(
+    (text, { pattern, replacement }) => text.replace(pattern, replacement),
+    value
+  );
+}
+
+export function redactArguments(args: readonly string[]): string[] {
+  return args.map((argument) => redactSecrets(argument));
 }
 
 export async function validateWorkspacePath(path: string): Promise<string> {

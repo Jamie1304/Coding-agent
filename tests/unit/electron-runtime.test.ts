@@ -12,10 +12,26 @@ describe("Electron runtime diagnosis", () => {
     expect(env.PERSONAL_CODEX_AGENT_DEV).toBe("1");
   });
 
-  it("validates the locked binary and selects a runnable application", async () => {
+  it("validates the locked binary or reports its missing-install recovery", async () => {
     const diagnostic = await diagnoseElectron(process.cwd());
     expect(diagnostic.packageVersion).toBe("43.2.0");
-    expect(diagnostic.pathFileValid).toBe(true);
+    if (!diagnostic.pathFileValue) {
+      expect(diagnostic.pathFileValid).toBe(false);
+      expect(diagnostic.rawExists).toBe(false);
+      expect(diagnostic.rawLaunchStatus).toBe("missing");
+      expect(diagnostic.selectedExecutable).toBeNull();
+      expect(diagnostic.repairActions).toContain("npm run electron:install");
+      return;
+    }
+    expect(
+      diagnostic.pathFileValid,
+      JSON.stringify({
+        platform: process.platform,
+        pathFileValue: diagnostic.pathFileValue,
+        pathFile: diagnostic.pathFile,
+        rawExecutable: diagnostic.rawExecutable
+      })
+    ).toBe(true);
     expect(diagnostic.rawExists).toBe(true);
     expect(diagnostic.rawSize).toBeGreaterThan(1_000_000);
     if (diagnostic.selectedExecutable) {

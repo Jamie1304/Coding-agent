@@ -1,4 +1,8 @@
-import { InvalidTransitionError, WorkflowStateMachine } from "@agent/core";
+import {
+  InvalidTransitionError,
+  StepGatedWorkflowStateMachine,
+  WorkflowStateMachine
+} from "@agent/core";
 
 describe("WorkflowStateMachine", () => {
   it("allows the complete required happy path", () => {
@@ -31,5 +35,28 @@ describe("WorkflowStateMachine", () => {
     );
     expect(() => WorkflowStateMachine.transition("AWAITING_APPROVAL", "IMPLEMENTING")).toThrow();
     expect(WorkflowStateMachine.nextExecutionState("REPORTING")).toBe("SUCCESS");
+  });
+
+  it("has a separate strict top-level sequence for approved step-gated runs", () => {
+    const path = StepGatedWorkflowStateMachine.executionStates();
+    expect(path).toContain("AWAITING_STEP_PLAN_APPROVAL");
+    expect(path).toContain("PULL_REQUEST_DRAFT_CREATION");
+    expect(path).toContain("EXECUTING_STEPS");
+    expect(path).toContain("MERGE");
+    expect(path).toContain("FINAL_REPORTING");
+    for (let index = 0; index < path.length - 1; index += 1) {
+      expect(StepGatedWorkflowStateMachine.transition(path[index]!, path[index + 1]!)).toBe(
+        path[index + 1]
+      );
+    }
+    expect(
+      StepGatedWorkflowStateMachine.canTransition("EXECUTING_STEPS", "FINAL_INDEPENDENT_REVIEW")
+    ).toBe(false);
+    expect(
+      StepGatedWorkflowStateMachine.canTransition(
+        "AWAITING_STEP_PLAN_APPROVAL",
+        "STEP_PLAN_GENERATION"
+      )
+    ).toBe(true);
   });
 });
