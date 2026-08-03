@@ -41,6 +41,32 @@ interface EnvironmentReport {
   checks: EnvironmentDiagnostic[];
 }
 
+interface RuntimeStatus {
+  phase: "starting" | "ready" | "recovering" | "failed" | "stopped";
+  message: string;
+  attempts: number;
+  safeMode: boolean;
+  updatedAt: string;
+}
+
+interface SetupComponent {
+  id: "git" | "codex" | "vscode" | "vscode-extension" | "github" | "ollama";
+  name: string;
+  requiredFor: string;
+  status: "available" | "missing" | "failed" | "not_checked";
+  version: string | null;
+  detail: string;
+  lastCheckedAt: string | null;
+  lastActionAt: string | null;
+}
+
+interface SetupState {
+  schemaVersion: 1;
+  productVersion: string;
+  updatedAt: string;
+  components: SetupComponent[];
+}
+
 type Section =
   | "New Run"
   | "Active Run"
@@ -58,6 +84,13 @@ type Section =
 function App(): React.JSX.Element {
   const [section, setSection] = useState<Section>("New Run");
   const [connection, setConnection] = useState<{ url: string; token: string } | null>(null);
+  const [runtime, setRuntime] = useState<RuntimeStatus>({
+    phase: "starting",
+    message: "Starting the local runtime…",
+    attempts: 0,
+    safeMode: false,
+    updatedAt: new Date().toISOString()
+  });
   const [workspace, setWorkspace] = useState<WorkspaceAnalysis | null>(null);
   const [prompt, setPrompt] = useState(localStorage.getItem("prompt-draft") ?? "");
   const [run, setRun] = useState<RunView | null>(null);
@@ -70,20 +103,40 @@ function App(): React.JSX.Element {
   const [models, setModels] = useState<DiscoveredModel[]>([]);
   const [usage, setUsage] = useState<Array<Record<string, unknown>>>([]);
   const [environment, setEnvironment] = useState<EnvironmentReport | null>(null);
+  const [setupState, setSetupState] = useState<SetupState | null>(null);
+
+  const connectRuntime = async (safeMode = false): Promise<void> => {
+    setError(null);
+    const details = safeMode
+      ? await window.agentDesktop.retryRuntime(true)
+      : await window.agentDesktop.connection();
+    setConnection(details);
+    const response = await fetch(`${details.url}/api/workspace/current`, {
+      headers: { "x-agent-token": details.token }
+    });
+    const data = (await response.json()) as { analysis: WorkspaceAnalysis | null };
+    setWorkspace(data.analysis);
+    setRuntime(await window.agentDesktop.runtimeStatus());
+  };
 
   useEffect(() => {
-    window.agentDesktop
-      .connection()
-      .then(async (details) => {
-        setConnection(details);
-        const response = await fetch(`${details.url}/api/workspace/current`, {
-          headers: { "x-agent-token": details.token }
-        });
-        const data = (await response.json()) as { analysis: WorkspaceAnalysis | null };
-        setWorkspace(data.analysis);
-      })
-      .catch((cause: unknown) => setError(`Daemon connection failed: ${String(cause)}`));
-  }, []);
+    let mounted = true;
+    const refresh = async (): Promise<void> => {
+      try {
+        const status = await window.agentDesktop.runtimeStatus();
+        if (mounted) setRuntime(status);
+        if (status.phase === "ready" && !connection) await connectRuntime();
+      } catch (cause) {
+        if (mounted) setError(`Runtime status failed: ${String(cause)}`);
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 1_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, [connection]);
 
   const api = async <T,>(path: string, init?: RequestInit): Promise<T> => {
     if (!connection) throw new Error("Daemon is not connected");
@@ -119,6 +172,13 @@ function App(): React.JSX.Element {
       .catch((cause: unknown) => setError(`Diagnostic refresh failed: ${String(cause)}`));
   };
 
+  const refreshSetupState = (): void => {
+    void window.agentDesktop
+      .setupStatus()
+      .then((state) => setSetupState(state as SetupState))
+      .catch((cause: unknown) => setError(`Setup status failed: ${String(cause)}`));
+  };
+
   useEffect(() => {
     if (!connection) return;
     if (["AI Providers", "Model Routing", "Setup & Connections"].includes(section)) {
@@ -126,7 +186,10 @@ function App(): React.JSX.Element {
         .then((result) => setProviders(result.providers))
         .catch((cause: unknown) => setError(String(cause)));
     }
-    if (section === "Setup & Connections") refreshEnvironment();
+    if (section === "Setup & Connections") {
+      refreshEnvironment();
+      refreshSetupState();
+    }
     if (section === "Cost Dashboard") {
       void api<{ usage: Array<Record<string, unknown>> }>("/api/usage")
         .then((result) => setUsage(result.usage))
@@ -283,7 +346,32 @@ function App(): React.JSX.Element {
             <button onClick={() => setError(null)}>×</button>
           </div>
         )}
-        {section === "New Run" && (
+        {!connection && (
+          <RuntimeStartup
+            runtime={runtime}
+            busy={busy}
+            onRetry={() =>
+              void perform(async () => {
+                await window.agentDesktop.retryRuntime(false);
+                await connectRuntime();
+              })
+            }
+            onSafeMode={() =>
+              void perform(async () => {
+                await connectRuntime(true);
+              })
+            }
+            onExport={() =>
+              void perform(async () => {
+                const path = await window.agentDesktop.exportDiagnostics();
+                if (path) setError(`Diagnostics exported to ${path}`);
+              })
+            }
+            onLogs={() => void window.agentDesktop.openLogs()}
+            onExit={() => void window.agentDesktop.quit()}
+          />
+        )}
+        {connection && section === "New Run" && (
           <NewRun
             workspace={workspace}
             prompt={prompt}
@@ -296,7 +384,7 @@ function App(): React.JSX.Element {
             onReview={createRun}
           />
         )}
-        {section === "Active Run" && (
+        {connection && section === "Active Run" && (
           <ActiveRun
             run={run}
             revision={currentRevision}
@@ -310,18 +398,39 @@ function App(): React.JSX.Element {
             onRejection={setRejection}
           />
         )}
-        {section === "Setup & Connections" && (
+        {connection && section === "Setup & Connections" && (
           <Setup
             connection={connection}
             workspace={workspace}
             environment={environment}
+            setupState={setupState}
             providerCount={providers.length}
             onSelect={selectWorkspace}
             onRetest={refreshEnvironment}
+            onInstall={(component) => {
+              if (
+                !window.confirm(
+                  `Install ${component.name}? This runs the approved package-manager command for the optional component.`
+                )
+              ) {
+                return;
+              }
+              void perform(async () => {
+                const state = await window.agentDesktop.installSetupComponent(component.id, true);
+                setSetupState(state as SetupState);
+              });
+            }}
+            onRepair={() =>
+              void perform(async () => {
+                const result = (await window.agentDesktop.repair()) as { setup: SetupState };
+                setSetupState(result.setup);
+                refreshEnvironment();
+              })
+            }
             onInstructions={() => setSection("Help")}
           />
         )}
-        {section === "AI Providers" && (
+        {connection && section === "AI Providers" && (
           <ProvidersPage
             providers={providers}
             busy={busy}
@@ -333,20 +442,23 @@ function App(): React.JSX.Element {
             }}
           />
         )}
-        {section === "Model Routing" && <RoutingPage models={models} api={api} perform={perform} />}
-        {section === "Cost Dashboard" && <CostDashboard usage={usage} />}
-        {section === "Parallel Execution" && <ParallelView run={run} />}
-        {section === "Verification" && <VerificationView run={run} />}
-        {![
-          "New Run",
-          "Active Run",
-          "Setup & Connections",
-          "AI Providers",
-          "Model Routing",
-          "Cost Dashboard",
-          "Parallel Execution",
-          "Verification"
-        ].includes(section) && <EmptySection section={section} run={run} workspace={workspace} />}
+        {connection && section === "Model Routing" && (
+          <RoutingPage models={models} api={api} perform={perform} />
+        )}
+        {connection && section === "Cost Dashboard" && <CostDashboard usage={usage} />}
+        {connection && section === "Parallel Execution" && <ParallelView run={run} />}
+        {connection && section === "Verification" && <VerificationView run={run} />}
+        {connection &&
+          ![
+            "New Run",
+            "Active Run",
+            "Setup & Connections",
+            "AI Providers",
+            "Model Routing",
+            "Cost Dashboard",
+            "Parallel Execution",
+            "Verification"
+          ].includes(section) && <EmptySection section={section} run={run} workspace={workspace} />}
         <section className={`logs ${logsOpen ? "open" : ""}`}>
           <button className="log-toggle" onClick={() => setLogsOpen(!logsOpen)}>
             <span>Diagnostics & activity log</span>
@@ -372,6 +484,68 @@ function App(): React.JSX.Element {
         </section>
       </main>
     </div>
+  );
+}
+
+function RuntimeStartup({
+  runtime,
+  busy,
+  onRetry,
+  onSafeMode,
+  onExport,
+  onLogs,
+  onExit
+}: {
+  runtime: RuntimeStatus;
+  busy: boolean;
+  onRetry(): void;
+  onSafeMode(): void;
+  onExport(): void;
+  onLogs(): void;
+  onExit(): void;
+}): React.JSX.Element {
+  const starting = runtime.phase === "starting" || runtime.phase === "recovering";
+  return (
+    <section className="card runtime-startup" aria-live="polite">
+      <p className="eyebrow">LOCAL RUNTIME</p>
+      <h2>{starting ? "Starting Personal Codex Agent" : "Runtime needs attention"}</h2>
+      <p className="lead">{runtime.message}</p>
+      <dl className="facts">
+        <div>
+          <dt>Status</dt>
+          <dd>{runtime.phase.replaceAll("_", " ")}</dd>
+        </div>
+        <div>
+          <dt>Recovery attempts</dt>
+          <dd>{runtime.attempts}</dd>
+        </div>
+        <div>
+          <dt>Safe mode</dt>
+          <dd>{runtime.safeMode ? "Enabled" : "Off"}</dd>
+        </div>
+      </dl>
+      <p className="muted">
+        The app starts a loopback-only runtime owned by this desktop session. It does not use a
+        system Node.js installation.
+      </p>
+      <div className="actions">
+        <button className="primary" disabled={busy || starting} onClick={onRetry}>
+          {busy ? "Retrying…" : "Retry runtime"}
+        </button>
+        <button className="secondary" disabled={busy || starting} onClick={onSafeMode}>
+          Start safe mode
+        </button>
+        <button className="secondary" onClick={onExport}>
+          Export diagnostics
+        </button>
+        <button className="secondary" onClick={onLogs}>
+          Open logs
+        </button>
+        <button className="secondary" onClick={onExit}>
+          Exit
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -672,17 +846,23 @@ function Setup({
   connection,
   workspace,
   environment,
+  setupState,
   providerCount,
   onSelect,
   onRetest,
+  onInstall,
+  onRepair,
   onInstructions
 }: {
   connection: { url: string; token: string } | null;
   workspace: WorkspaceAnalysis | null;
   environment: EnvironmentReport | null;
+  setupState: SetupState | null;
   providerCount: number;
   onSelect(): void;
   onRetest(): void;
+  onInstall(component: SetupComponent): void;
+  onRepair(): void;
   onInstructions(): void;
 }): React.JSX.Element {
   const checks = [
@@ -725,6 +905,9 @@ function Setup({
         <button className="secondary" onClick={onRetest}>
           Retest environment
         </button>
+        <button className="secondary" onClick={onRepair}>
+          Repair runtime
+        </button>
         <button className="secondary" onClick={onInstructions}>
           Open instructions
         </button>
@@ -747,6 +930,27 @@ function Setup({
             <small>
               {check.blocking ? "Blocks local startup" : "Does not block local startup"}
             </small>
+          </div>
+        </div>
+      ))}
+      <h3>Managed optional components</h3>
+      {!setupState && <p className="lead">Checking managed components…</p>}
+      {setupState?.components.map((component) => (
+        <div className="check" key={component.id}>
+          <span className={component.status === "available" ? "check-ok" : "check-warn"}>
+            {component.status === "available" ? "âœ“" : "!"}
+          </span>
+          <div>
+            <strong>
+              {component.name} Â· {component.status.replaceAll("_", " ")}
+            </strong>
+            <small>{component.detail}</small>
+            <small>Used for: {component.requiredFor}</small>
+            {component.status !== "available" && component.status !== "not_checked" && (
+              <button className="secondary" onClick={() => onInstall(component)}>
+                Install with consent
+              </button>
+            )}
           </div>
         </div>
       ))}

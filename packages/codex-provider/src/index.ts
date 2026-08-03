@@ -212,7 +212,7 @@ export class AppServerCodexProvider implements CodexProvider {
       clientInfo: {
         name: "personal_codex_agent",
         title: "Personal Codex Agent",
-        version: "0.2.0"
+        version: "0.3.0"
       }
     });
     this.notify("initialized", {});

@@ -1,0 +1,527 @@
+You are a senior Windows-first full-stack engineer, QA engineer, security reviewer, and release engineer.
+
+Your task is to perform a complete audit of the existing “Personal Codex Agent” repository, identify bugs and inconsistencies across the application and codebase, fix all safe in-scope issues, and verify the result.
+
+This is an audit-and-repair task only. Do not expand the product scope or introduce unrelated features.
+
+## Project context
+
+Personal Codex Agent is a Windows-first, single-user desktop application consisting of:
+
+- Electron desktop client
+- React renderer
+- Loopback-only Node daemon
+- Typed API between renderer and daemon
+- VS Code workspace bridge
+- SQLite run history
+- Deterministic orchestration
+- Prompt review and approval workflow
+- Codex app-server integration
+- Isolated Git worktrees
+- Git and GitHub adapters
+- Quality gates
+- Deployment and rollback adapters
+- Markdown and JSON evidence reports
+
+The application must preserve this core rule:
+
+“No repository write or Codex implementation turn is allowed before the user approves a prompt revision.”
+
+GitHub and deployment stages must continue to be skipped honestly when they are not configured.
+
+The project is Windows-first and must remain usable through the packaged `.exe` without requiring users to manually use the terminal for normal setup and operation.
+
+## Primary objective
+
+Inspect the entire repository and correct:
+
+- Functional bugs
+- Broken workflows
+- Runtime errors
+- Build and packaging problems
+- Incorrect assumptions
+- API inconsistencies
+- Type mismatches
+- UI inconsistencies
+- Security weaknesses
+- Windows-specific failures
+- Documentation inconsistencies
+- Missing error handling
+- Broken or unreliable tests
+- Configuration and setup problems
+- Resource leaks and process cleanup issues
+- Incorrect behavior when optional integrations are unavailable
+
+Do not assume that the README is correct. Compare the README and documentation against the actual implementation and update whichever side is wrong.
+
+## Important constraints
+
+1. Work only within the existing repository.
+2. Preserve the current architecture unless a small structural change is necessary to fix a real defect.
+3. Do not add new AI providers, CLI integrations, deployment platforms, or unrelated product features during this task.
+4. Do not remove or weaken the prompt-review, approval, isolation, authentication, security, or quality-gate behavior.
+5. Do not bypass tests or lower security standards to make tests pass.
+6. Do not delete existing tests.
+7. Do not use destructive Git commands such as reset, checkout, clean, or broad deletion.
+8. Preserve uncommitted user changes. Inspect `git status` before editing.
+9. Avoid large speculative refactors.
+10. Use the smallest safe patch that fixes the underlying cause.
+11. Every behavioral fix must have a regression test whenever practical.
+12. Do not claim that the repository is healthy without actually running the relevant checks.
+13. If a dependency or external integration is unavailable, test the application’s graceful fallback behavior instead of inventing fake success.
+14. Keep the application single-user and Windows-first.
+15. Preserve existing user-facing terminology and visual style unless a label is demonstrably incorrect or misleading.
+
+## Phase 1: establish a baseline
+
+Before changing files:
+
+1. Inspect the repository structure.
+2. Inspect `package.json`, workspace/package configuration, TypeScript configuration, Electron configuration, build scripts, test scripts, and packaging scripts.
+3. Inspect all source directories, test directories, scripts, adapters, database code, UI routes, preload code, daemon code, and VS Code extension code.
+4. Inspect all documentation files, especially:
+
+   - `README.md`
+   - `docs/architecture.md`
+   - `docs/user-setup-guide.md`
+   - `docs/developer-guide.md`
+   - `docs/codex-integration.md`
+   - `docs/github-integration.md`
+   - `docs/deployment-configuration.md`
+   - `docs/security-model.md`
+   - `docs/testing-strategy.md`
+   - `docs/troubleshooting.md`
+   - `CHANGELOG.md`
+
+5. Run `git status --short`.
+6. Record the initial state of the repository.
+7. Run the existing checks before making changes:
+
+   - `npm test`
+   - `npm run test:unit`
+   - `npm run test:integration`
+   - `npm run test:e2e`
+   - `npm run test:security`
+   - `npm run lint`
+   - `npm run typecheck`
+   - `npm run build`
+   - `npm run doctor -- --json`
+
+8. If a command fails, determine whether it is:
+
+   - A real product defect
+   - A broken test
+   - A missing optional dependency
+   - An environment problem
+   - A documentation or script inconsistency
+
+Do not hide failures. Record each result.
+
+## Phase 2: audit the application
+
+### A. Application startup and lifecycle
+
+Verify:
+
+- Development startup works from a path containing spaces.
+- The packaged Windows application starts correctly.
+- The daemon starts, reports readiness, and shuts down cleanly.
+- The Electron app handles daemon startup failure.
+- Ports are selected and released correctly.
+- Stale daemon processes do not remain after application exit.
+- Restarting the application does not corrupt state.
+- Multiple startup attempts do not create duplicate daemons or conflicting listeners.
+- Errors are shown in the UI instead of being silently swallowed.
+- Unhandled promise rejections and uncaught exceptions are handled appropriately.
+
+### B. Electron security
+
+Verify:
+
+- `contextIsolation` is enabled.
+- `nodeIntegration` is disabled in the renderer.
+- The renderer cannot access arbitrary Node or filesystem APIs.
+- The preload bridge exposes only the intended typed methods.
+- IPC channels are validated.
+- Renderer input cannot invoke arbitrary shell commands.
+- External URLs are handled safely.
+- Windows paths are validated and normalized.
+- Secrets and authentication tokens are never exposed to the renderer unnecessarily.
+- Development-only security bypasses are not enabled in production packaging.
+- The daemon accepts only authenticated loopback requests.
+
+Fix any security regression without weakening the existing security model.
+
+### C. Renderer and UI consistency
+
+Test every major screen and workflow, including:
+
+- First launch
+- Setup and Connections
+- Project or folder selection
+- Workspace verification
+- Prompt submission
+- Material-question handling
+- Prompt revision
+- Prompt approval
+- Execute workflow
+- Run history
+- Run details
+- Diff review
+- Evidence reports
+- GitHub stages
+- Deployment stages
+- Error states
+- Empty states
+- Missing-integration states
+- Cancelled and failed runs
+
+Check for:
+
+- Buttons that do nothing
+- Incorrect navigation
+- Broken loading states
+- Stale data after mutations
+- Forms that lose input
+- Incorrect disabled/enabled states
+- Missing validation
+- Inconsistent terminology
+- Inconsistent date/time formatting
+- Incorrect status colors or labels
+- Errors that are not actionable
+- Missing retry actions
+- Duplicate notifications
+- Race conditions during refresh
+- Accessibility problems
+- Text overflow or layout problems in Windows packaging
+- UI behavior that differs between development and packaged builds
+
+Do not redesign the application. Fix correctness and consistency issues while preserving the existing design.
+
+### D. Prompt review and approval workflow
+
+Verify the complete state machine:
+
+1. User submits an incomplete request.
+2. The application identifies material questions.
+3. The user revises or answers questions.
+4. A frozen prompt/specification is produced.
+5. The user explicitly approves the revision.
+6. Only then may repository-writing or Codex execution begin.
+7. The execution runs in an isolated worktree.
+8. Results, tests, diffs, and evidence are recorded.
+
+Check that:
+
+- Approval cannot be accidentally bypassed.
+- Revisions invalidate previous approval when appropriate.
+- The frozen prompt cannot be silently modified.
+- Double-clicking approval does not start duplicate runs.
+- Refreshing the UI does not lose workflow state.
+- Cancelled runs have a consistent final state.
+- Failed runs preserve useful diagnostics.
+- Completed runs cannot be incorrectly shown as running.
+- Run state survives application restart.
+- Run history accurately reflects the actual execution state.
+
+### E. Daemon and API contracts
+
+Inspect every daemon endpoint and compare it with:
+
+- Renderer API calls
+- Preload types
+- Shared TypeScript types
+- Request validation
+- Response validation
+- Database models
+- Tests
+- Documentation
+
+Look for:
+
+- Mismatched property names
+- Optional fields treated as required
+- Different status values in different modules
+- Inconsistent HTTP status codes
+- Inconsistent error shapes
+- Missing validation
+- Incorrect serialization of dates, paths, errors, and enums
+- APIs that return different shapes on success and failure
+- Endpoints that do not handle malformed input safely
+- Missing authentication checks
+- Duplicate or conflicting constants
+- Dead endpoints
+- UI calls to endpoints that no longer exist
+
+Make the API contract internally consistent and add tests for corrected behavior.
+
+### F. Codex integration
+
+Verify:
+
+- Authentication diagnostics are accurate.
+- Missing Codex installation or authentication is reported clearly.
+- The app-server process is launched safely.
+- Windows executable paths are handled correctly.
+- Arguments are passed without shell-injection risk.
+- Streaming output is parsed correctly.
+- Malformed or partial messages do not crash the daemon.
+- Process exit codes are handled correctly.
+- Timeouts work.
+- Cancellation works.
+- Orphaned Codex processes are cleaned up.
+- Logs do not expose credentials or sensitive prompt data.
+- Run identifiers remain consistent across UI, daemon, database, worktree, and evidence output.
+- Resume/retry behavior does not duplicate repository writes.
+- Codex failures are represented honestly in run history and reports.
+
+Do not replace the existing Codex integration with a different architecture unless required to fix a confirmed defect.
+
+### G. Git and isolated worktrees
+
+Verify:
+
+- Repository paths are validated.
+- Paths containing spaces and non-ASCII characters work.
+- Non-Git folders fail with a clear message or use the documented manual-folder behavior.
+- Dirty working trees are handled according to the documented policy.
+- Worktrees are created in the intended location.
+- Worktree names are safe and deterministic.
+- Branch and commit information is accurate.
+- Worktrees are cleaned up safely.
+- Cleanup failure is reported instead of ignored.
+- Concurrent runs cannot accidentally share a worktree.
+- Git command output is safely captured and redacted where necessary.
+- Diff review shows the correct worktree and run.
+- Rollback behavior is safe and accurately reported.
+- No command can be influenced through unvalidated user-controlled arguments.
+
+### H. SQLite and persistence
+
+Verify:
+
+- Database initialization works on a clean installation.
+- Migrations are idempotent.
+- Existing databases upgrade safely.
+- Database paths are correct in development and packaged modes.
+- Concurrent reads and writes are handled safely.
+- Transactions are used where state changes must be atomic.
+- Run status cannot become internally contradictory.
+- Failed operations do not leave partial records.
+- Timestamps are consistent.
+- Long output is stored safely.
+- Database errors are surfaced clearly.
+- Restarting the app preserves run history.
+- Corrupt or inaccessible database files produce actionable diagnostics.
+
+### I. GitHub and deployment adapters
+
+Do not add new functionality. Audit the current adapters.
+
+Verify:
+
+- GitHub is optional and the app remains usable without it.
+- Deployment is optional and the app remains usable without it.
+- Missing authentication is reported accurately.
+- Unconfigured stages are skipped honestly.
+- A skipped stage is not reported as successful.
+- GitHub errors do not corrupt the local run.
+- Deployment errors do not corrupt the Git or run state.
+- Retry behavior is safe.
+- Repository, branch, pull-request, deployment, and commit identifiers are not mixed up.
+- UI labels match actual adapter behavior.
+- Evidence reports distinguish completed, skipped, failed, and not-configured stages.
+
+### J. VS Code workspace bridge
+
+Verify:
+
+- The extension builds and packages successfully.
+- The desktop app can distinguish the active workspace from a stale workspace.
+- Workspace paths are normalized consistently.
+- The bridge handles VS Code being closed or unavailable.
+- Stale workspace data expires or is rejected safely.
+- Workspace snapshots cannot escape the selected project.
+- The exact workspace shown in the desktop header matches the workspace used by the daemon.
+- Bridge errors are visible and actionable.
+
+### K. Setup, diagnostics, and packaging
+
+Verify all documented commands and artifacts:
+
+- `npm run dev`
+- `npm run build`
+- `npm test`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:e2e`
+- `npm run test:security`
+- `npm run lint`
+- `npm run typecheck`
+- `npm run package`
+- `npm run doctor`
+- `npm run doctor -- --json`
+
+Check:
+
+- Scripts work from the repository root.
+- Scripts work when the current directory is different.
+- PowerShell scripts work with spaces in paths.
+- Missing optional integrations do not prevent startup.
+- Diagnostics accurately distinguish required and optional dependencies.
+- Packaged paths match README documentation.
+- Version numbers are consistent across package files, UI, VSIX, artifacts, and documentation.
+- Checksums are generated correctly.
+- The packaged `.exe` includes all required runtime files.
+- Development-only files are not accidentally packaged.
+- A clean Windows installation can follow the setup guide successfully.
+
+### L. Security, privacy, and redaction
+
+Check for:
+
+- Secrets stored in source code
+- Tokens written to logs
+- API keys included in evidence reports
+- Credentials exposed through errors
+- Unsafe environment-variable handling
+- Path traversal
+- Shell injection
+- Command injection
+- Unsafe temporary-file handling
+- Insecure file permissions
+- Excessive daemon access
+- Missing authorization checks
+- Sensitive data retained longer than necessary
+- Unredacted child-process output
+
+Add or repair security tests where needed.
+
+### M. Code quality and maintainability
+
+Inspect for:
+
+- Incorrect TypeScript types
+- Unsafe `any` usage
+- Duplicated business logic
+- Dead code
+- Unused configuration
+- Inconsistent naming
+- Inconsistent error handling
+- Missing return-value checks
+- Race conditions
+- Unhandled asynchronous work
+- Memory leaks
+- Event-listener leaks
+- Timer leaks
+- Process-handle leaks
+- Inconsistent logging
+- Brittle test helpers
+- Tests that rely on machine-specific paths
+- Tests that depend on optional software without a skip explanation
+
+Prefer clear, local fixes over broad refactoring.
+
+## Phase 3: classify and repair findings
+
+Classify each finding as:
+
+- Blocker: prevents startup, execution, data safety, or release
+- Critical: security, approval bypass, data corruption, or destructive behavior
+- Major: broken primary workflow or serious integration failure
+- Minor: limited defect or inconsistency
+- Cosmetic: wording, formatting, or low-impact presentation issue
+
+Fix all Blocker, Critical, and Major issues that are within the repository and task scope.
+
+Fix Minor and Cosmetic issues when the fix is low-risk and does not expand scope.
+
+For every fix:
+
+1. Identify the root cause.
+2. Make the smallest safe code change.
+3. Add or update a regression test.
+4. Run the narrowest relevant test first.
+5. Run the complete validation suite afterward.
+6. Confirm that the change does not weaken security or approval controls.
+
+If an issue cannot be fixed safely because it depends on unavailable software, external credentials, or an environment limitation, document it precisely and implement the best safe fallback or diagnostic behavior.
+
+## Phase 4: verification
+
+After fixes, run:
+
+- `npm run lint`
+- `npm run typecheck`
+- `npm test`
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:e2e`
+- `npm run test:security`
+- `npm run build`
+- `npm run package`
+- `npm run doctor -- --json`
+
+Also perform a manual smoke test of:
+
+1. Starting the development app.
+2. Starting the packaged Windows application if packaging is available.
+3. Opening a project.
+4. Confirming the exact workspace.
+5. Submitting a prompt.
+6. Revising the prompt.
+7. Confirming that execution is blocked before approval.
+8. Approving and executing a safe test run.
+9. Reviewing the diff.
+10. Inspecting run history and evidence.
+11. Running with Codex unavailable.
+12. Running with GitHub unavailable.
+13. Running with deployment unavailable.
+14. Cancelling a run.
+15. Restarting the application and confirming persisted state.
+
+Do not treat unavailable optional integrations as failures if the application correctly reports and skips them.
+
+## Phase 5: documentation and audit report
+
+Update documentation only where it is inaccurate or incomplete because of a confirmed implementation change.
+
+Create or update an audit report at:
+
+`docs/overall-audit-report.md`
+
+The report must include:
+
+- Date of audit
+- Repository commit or working-tree state
+- Commands executed
+- Pass/fail/blocked result for each command
+- All findings by severity
+- Root cause for each repaired issue
+- Files changed
+- Tests added or updated
+- Known limitations
+- External integrations that could not be tested
+- Remaining risks
+- Confirmation that the prompt approval gate remains enforced
+- Confirmation that GitHub and deployment are skipped honestly when unconfigured
+- Confirmation of whether the packaged Windows artifact was successfully verified
+
+Do not claim “all issues fixed” unless every discovered in-scope issue was fixed or explicitly documented as blocked with a reason.
+
+## Final response format
+
+At the end, provide a concise summary containing:
+
+1. Overall result: pass, pass with limitations, or blocked.
+2. Number of findings by severity.
+3. Number of issues fixed.
+4. Files changed.
+5. Tests and commands that passed.
+6. Tests or checks that failed.
+7. Checks blocked by missing tools, credentials, or environment limitations.
+8. Remaining risks.
+9. Exact location of the audit report.
+10. Whether the `.exe` package was verified.
+
+Begin by inspecting the repository and establishing the baseline. Do not make changes until you understand the current architecture and working-tree state.

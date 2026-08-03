@@ -3,15 +3,17 @@
 ## Process and trust boundaries
 
 The Electron renderer is an unprivileged React application. It has context isolation and renderer
-sandboxing enabled, Node integration disabled, a restrictive Content Security Policy, navigation
-blocked, and only three preload calls: load the local daemon connection, select a folder, and open a
-local path. It cannot execute commands, read arbitrary files, reach secrets, start Codex, invoke Git,
-or deploy.
+sandboxing enabled, Node integration disabled, navigation blocked, and a narrow preload surface for
+runtime status/retry, diagnostic export, managed setup actions, and folder selection. It cannot
+execute arbitrary commands, read arbitrary paths, reach stored secrets, start an arbitrary process,
+invoke Git, or deploy.
 
-The Node daemon owns privileged work. It binds only to `127.0.0.1`, uses a random port by default,
-generates a 256-bit bearer token, writes connection metadata to the local application data folder,
-validates every request with Zod, canonicalizes workspace paths, serializes conflicting repository
-runs, redacts logs, and persists durable state in SQLite.
+The Electron main process owns the production daemon lifecycle. A single desktop instance starts a
+bundled daemon through Electron's utility-process runtime, with a random loopback port and fresh
+256-bit bearer token. It waits for an authenticated health and version/protocol compatibility check
+before exposing the connection to the renderer, uses bounded restart/retry, and shuts down only its
+own child. The daemon validates every request with Zod, canonicalizes workspace paths, serializes
+conflicting repository runs, redacts logs, and persists durable state in SQLite.
 
 The VS Code extension is a bridge. It chooses the deepest workspace folder containing the active
 file, supports explicit multi-root selection, reports trust state, and does not execute project code.
@@ -79,8 +81,8 @@ validated as JSON-serializable and reject token-like or credential-like content 
 
 ## Local API
 
-The daemon exposes `GET /health` without credentials. Every `/api` route requires
-`X-Agent-Token` or a Bearer token. Implemented routes cover setup status, active workspace,
+The daemon exposes a token-protected `GET /health`; every route requires `X-Agent-Token` or a
+Bearer token. Implemented routes cover setup status, active workspace,
 run listing/detail/creation, answers, approval, rejection, cancellation, and WebSocket timelines.
 Bodies are capped at 1 MB and validated.
 

@@ -18,7 +18,7 @@ describe("runnable documentation", () => {
     for (const name of ["dev", "doctor", "package", "package:extension"]) {
       expect(packageJson.scripts[name]).toBeTruthy();
     }
-    expect(text).toContain("personal-codex-agent-vscode-0.2.0.vsix");
+    expect(text).toContain("Personal-Codex-Agent-Setup-0.3.0-x64.exe");
   });
 
   it("excludes mutable agent runtime state from formatting checks", async () => {

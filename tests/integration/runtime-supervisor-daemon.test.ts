@@ -25,7 +25,6 @@ describe("runtime supervisor daemon validation", () => {
         env: { AGENT_DATA_DIR: dataDirectory, AGENT_PORT: String(port) },
         readiness: {
           logPattern: "daemon.ready",
-          httpUrl: `http://127.0.0.1:${port}/health`,
           timeoutMs: 10_000
         },
         expectedPorts: [port]
@@ -54,10 +53,16 @@ describe("runtime supervisor daemon validation", () => {
 });
 
 async function assertDaemonResponsive(dataDirectory: string, port: number): Promise<void> {
-  expect((await fetch(`http://127.0.0.1:${port}/health`)).status).toBe(200);
   const connection = JSON.parse(await readFile(join(dataDirectory, "daemon.json"), "utf8")) as {
     token: string;
   };
+  expect(
+    (
+      await fetch(`http://127.0.0.1:${port}/health`, {
+        headers: { "x-agent-token": connection.token }
+      })
+    ).status
+  ).toBe(200);
   expect(
     (
       await fetch(`http://127.0.0.1:${port}/api/runs`, {

@@ -1,0 +1,993 @@
+
+
+````text
+# Task: Integrate the Recommended Multi-Agent Strategy into the Existing Phase 3 Workflow
+
+You are working on the existing Personal Codex Agent repository.
+
+Your task is to integrate the multi-agent strategy described below into the application’s existing Phase 3 “Step-by-Step Planning” and step-gated execution workflow.
+
+The existing Phase 3 workflow is authoritative. Do not create a competing orchestration system, duplicate state machine, or separate execution pipeline.
+
+The strategy must become a routing and setup layer inside the current workflow.
+
+The application must recommend the strategy from the attached strategy document as the default setup, explain why it is recommended, provide three alternative strategies, and allow the user to configure everything through the Windows desktop application without manually using the terminal.
+
+The application’s internal runtime-testing engine may still use PowerShell, `cmd.exe`, or a pseudo-terminal because Phase 3 requires real runtime testing. “Without using the terminal” applies to the user-facing setup and configuration experience.
+
+---
+
+# 1. Existing Phase 3 workflow must remain authoritative
+
+Preserve and integrate with the current workflow that requires every approved request to be executed as chronological, gated steps.
+
+The existing workflow must continue to:
+
+1. Review the user’s request.
+2. Ask material questions.
+3. Generate a structured step-by-step plan.
+4. Show the complete plan to the user.
+5. Require approval.
+6. Freeze the approved plan.
+7. Execute only one chronological step at a time.
+8. Implement the current step.
+9. Add or update tests.
+10. Start the real application.
+11. Test the actual UI, API, routes, processes, and integrations.
+12. Inspect terminal output and runtime errors.
+13. Automatically diagnose and repair relevant errors.
+14. Stop and restart the application.
+15. Repeat affected runtime tests after restarting.
+16. Review the step diff.
+17. Update documentation.
+18. Update project knowledge.
+19. Create a focused Git commit.
+20. Push the commit to GitHub.
+21. Update the pull request with evidence.
+22. Unlock the next step only after all applicable gates pass.
+
+Do not allow the strategy system to bypass or weaken any of these requirements.
+
+The next chronological step must remain locked while the current step is:
+
+- Failing
+- Untested
+- Not runtime-tested
+- Not restart-tested
+- Not documented
+- Not reflected in project knowledge
+- Not committed
+- Not pushed
+- Missing pull-request evidence
+- Missing required review
+- Missing completion evidence
+
+---
+
+# 2. Primary objective
+
+Implement a strategy system that determines which configured AI provider or model is used for each responsibility within the existing Phase 3 workflow.
+
+The deterministic Personal Codex Agent controller must remain responsible for:
+
+- Step ordering
+- State transitions
+- Approval gates
+- Budget enforcement
+- Retry limits
+- Escalation rules
+- Git operations
+- Worktree creation
+- Test execution
+- Runtime validation
+- Security checks
+- Documentation gates
+- Project-knowledge gates
+- GitHub checkpoints
+- Release decisions
+
+AI models may recommend actions, write code, review code, classify data, or create plans, but they may not control the execution gates.
+
+No model may mark its own work as passed.
+
+Only machine-recorded evidence and deterministic gate evaluation may complete a step.
+
+---
+
+# 3. Mandatory initial audit
+
+Before modifying the repository:
+
+1. Read `AGENTS.md` if present.
+2. Read the root `README.md`.
+3. Read all architecture and developer documentation.
+4. Inspect the complete repository tree.
+5. Inspect the current Phase 3 implementation.
+6. Inspect the current step-plan generation system.
+7. Inspect the existing implementation-step schema.
+8. Inspect the current state machine.
+9. Inspect the step completion gate.
+10. Inspect the current prompt-review and approval flow.
+11. Inspect the current Codex provider integration.
+12. Inspect all existing model-routing logic.
+13. Inspect the current task-routing system.
+14. Inspect parallel analysis and worker execution.
+15. Inspect the daemon and Electron process startup.
+16. Inspect the desktop UI.
+17. Inspect the current provider setup screens.
+18. Inspect existing credential storage.
+19. Inspect Git and GitHub adapters.
+20. Inspect runtime testing and terminal-session code.
+21. Inspect database migrations.
+22. Inspect project-knowledge generation.
+23. Inspect documentation maintenance.
+24. Inspect versioning and changelog logic.
+25. Run the existing tests and diagnostics.
+26. Run the current application where possible.
+27. Record baseline failures, warnings, and missing integrations.
+28. Preserve unrelated user changes.
+
+Create:
+
+```text
+.agent-runs/<run-id>/baseline-audit.md
+````
+
+Do not begin large changes until this audit is complete.
+
+First determine whether the required functionality already exists and extend it instead of creating duplicate systems.
+
+---
+
+# 4. Default recommended strategy
+
+Create the following strategy as the default and primary recommendation.
+
+## Strategy name
+
+Balanced Multi-Agent Engineering
+
+## Purpose
+
+Use specialized models for different responsibilities while keeping the application’s deterministic controller in charge of the workflow.
+
+The intended architecture is:
+
+```text
+Deterministic discovery
+→ Frontier planning
+→ Focused specialist execution
+→ Deterministic testing
+→ Independent review
+→ Frontier release judgment
+```
+
+## Default role assignments
+
+| Responsibility             | Default model/system                | Escalation                      |
+| -------------------------- | ----------------------------------- | ------------------------------- |
+| Task classification        | GPT-5.6 Luna                        | GPT-5.6 Terra                   |
+| Master planning            | GPT-5.6 Sol                         | Claude Fable 5                  |
+| Repository inventory       | Deterministic scripts + Luna        | Gemini 3.6 Flash                |
+| Documentation research     | Gemini 3.6 Flash                    | GPT-5.6 Sol                     |
+| Normal coding              | GPT-5.3 Codex                       | Claude Sonnet 5                 |
+| Hard debugging             | Claude Sonnet 5                     | Claude Fable 5                  |
+| Large mechanical changes   | GPT-5.3 Codex                       | Grok 4.5                        |
+| Test generation            | GPT-5.3 Codex                       | Claude Sonnet 5                 |
+| Test-log classification    | GPT-5.6 Luna                        | DeepSeek V4 Flash               |
+| Independent code review    | Grok 4.5                            | GPT-5.6 Sol                     |
+| UI and screenshot analysis | Gemini 3.1 Pro                      | Claude Fable 5                  |
+| Security review            | Static scanners + GPT-5.6 Sol       | Claude Fable 5                  |
+| GitHub workflow            | Direct GitHub adapter               | Optional Copilot cloud agent    |
+| Final release decision     | GPT-5.6 Sol                         | Sol + Fable consensus           |
+| Offline/private processing | Qwen Code or configured local model | Cloud model only after approval |
+
+Recommended approximate workload distribution:
+
+* 40% Luna or another low-cost classifier
+* 35% GPT-5.3 Codex
+* 10% Grok 4.5
+* 8% Claude Sonnet 5
+* 5% GPT-5.6 Sol
+* 2% Claude Fable 5
+
+## Why this is recommended
+
+The application must clearly explain that this strategy is recommended because:
+
+1. Deterministic discovery reduces unnecessary model usage.
+2. Cheap models process large inventories and logs efficiently.
+3. Codex performs normal coding and test generation.
+4. Sonnet is reserved for difficult debugging.
+5. Grok provides independent review from a different model family.
+6. Sol handles architecture, high-risk decisions, and final release judgment.
+7. Fable is reserved for exceptional critical cases.
+8. Deterministic tests and scanners—not AI claims—decide whether code works.
+9. Focused task context reduces token usage and repeated repository scanning.
+10. Bounded retry and escalation rules prevent uncontrolled costs.
+11. Different model families reduce the chance of repeating the same reasoning error.
+12. The strategy provides a strong balance between cost, quality, speed, safety, and privacy.
+
+This explanation must appear in:
+
+* The first-run setup wizard
+* The Strategy Center
+* The setup tutorial
+* The strategy documentation
+
+---
+
+# 5. Three alternative strategies
+
+Implement three complete alternatives.
+
+## Alternative 1: Cost-Optimized Engineering
+
+Best for:
+
+* Frequent development
+* Routine coding tasks
+* Lower API costs
+* Smaller projects
+
+Routing:
+
+* Deterministic scripts for discovery
+* Luna or DeepSeek V4 Flash for classification and summaries
+* GPT-5.3 Codex for implementation
+* Grok 4.5 for independent review
+* Claude Sonnet 5 after repeated Codex failures
+* Sol only for high-risk planning or release decisions
+* Fable disabled by default
+
+Approximate distribution:
+
+* 55% Luna or DeepSeek V4 Flash
+* 25% GPT-5.3 Codex
+* 10% Grok 4.5
+* 7% Claude Sonnet 5
+* 3% GPT-5.6 Sol
+
+Explain that this strategy lowers cost but provides less architectural reasoning before routine tasks.
+
+## Alternative 2: Maximum Quality Engineering
+
+Best for:
+
+* Production releases
+* Security-sensitive changes
+* Database migrations
+* Authentication and authorization
+* Complex architecture
+* High-risk business systems
+
+Routing:
+
+* Sol creates the master task graph.
+* Codex performs the initial implementation.
+* Sonnet handles complex debugging and secondary implementation.
+* Grok performs independent adversarial review.
+* Sol evaluates disagreements.
+* Static scanners and deterministic tests are mandatory.
+* Fable may be used for critical unresolved cases.
+* Important releases may require Sol and Fable consensus.
+
+Explain that this strategy provides stronger review but costs more and is slower.
+
+## Alternative 3: Privacy-First Local Engineering
+
+Best for:
+
+* Proprietary source code
+* Sensitive client projects
+* Offline work
+* Local or on-premise AI
+* Environments where code must not leave the machine
+
+Routing:
+
+* Deterministic tools perform discovery, testing, Git, and validation.
+* Qwen Code or another configured local model handles planning, coding, classification, and review.
+* Cloud models are disabled by default.
+* Cloud escalation requires explicit user approval.
+* If the local model is unavailable, pause safely instead of silently sending code to a cloud provider.
+* The UI must clearly show when data would leave the local machine.
+
+Explain that this strategy maximizes privacy but may provide lower quality or slower results depending on local hardware.
+
+---
+
+# 6. Provider and model alias system
+
+Do not hardcode display names directly into execution logic.
+
+Create a provider/model registry with:
+
+* Provider ID
+* Model alias
+* Actual provider model ID
+* Capability list
+* Context limit
+* Vision support
+* Tool-use support
+* Coding capability
+* Local/cloud classification
+* Availability status
+* Authentication status
+* Pricing metadata when available
+* Last verified timestamp
+
+The names in this prompt are strategy aliases. The application must resolve them to actual configured provider identifiers.
+
+If a model is unavailable:
+
+* Show it as unavailable.
+* Explain why.
+* Show affected roles.
+* Show the configured fallback.
+* Require confirmation before changing the strategy.
+* Never silently pretend the unavailable model was used.
+
+---
+
+# 7. Integration with the existing step plan
+
+The existing Phase 3 step-plan generator remains responsible for creating the chronological plan.
+
+Extend each implementation step with strategy-routing information.
+
+Add fields equivalent to:
+
+```ts
+export interface StepModelRouting {
+  strategyId: string;
+  strategyVersion: string;
+
+  plannerRole: string;
+  plannerModel: string;
+
+  primaryWorkerRole: string;
+  primaryWorkerModel: string;
+
+  testWorkerRole: string;
+  testWorkerModel: string;
+
+  runtimeAnalysisRole: string;
+  runtimeAnalysisModel: string;
+
+  independentReviewerRole: string;
+  independentReviewerModel: string;
+
+  releaseJudgeRole: string;
+  releaseJudgeModel: string;
+
+  fallbackModels: string[];
+  escalationConditions: string[];
+
+  maximumAttempts: number;
+  maximumCost: number | null;
+
+  requiresUserApprovalForEscalation: boolean;
+  localOnly: boolean;
+}
+```
+
+Each step must also record:
+
+* Why the selected model was chosen
+* Which capabilities are required
+* What context the model will receive
+* Which files are in scope
+* Which files are excluded
+* Required tests
+* Required runtime checks
+* Required restart checks
+* Required review level
+* Required evidence
+
+The approved step plan must freeze the resolved routing snapshot.
+
+Create:
+
+```text
+.agent-runs/<run-id>/strategy-snapshot.json
+.agent-runs/<run-id>/strategy-snapshot.md
+```
+
+Do not silently change model assignments after the plan is approved.
+
+If a provider becomes unavailable:
+
+1. Pause the affected step.
+2. Explain the problem.
+3. Show available fallbacks.
+4. Request approval if the change materially affects cost, privacy, or quality.
+5. Record the routing amendment.
+6. Continue only after the routing decision is accepted.
+
+---
+
+# 8. Strategy routing within the Phase 3 state machine
+
+Integrate routing into the existing states.
+
+## Planning states
+
+During:
+
+```text
+REPOSITORY_DISCOVERY
+PROMPT_REVIEW
+QUESTIONING
+PROMPT_REVISION
+STEP_PLAN_GENERATION
+AWAITING_STEP_PLAN_APPROVAL
+```
+
+Use:
+
+* Deterministic repository inventory first
+* Luna for classification
+* Sol for master planning
+* Gemini for documentation or external research
+* Existing user approval before freezing the plan
+
+The full master prompt must not be sent unnecessarily to every model.
+
+## Per-step states
+
+During:
+
+```text
+STEP_CONTEXT_ANALYSIS
+STEP_IMPLEMENTATION
+STEP_AUTOMATED_TEST_CREATION
+STEP_FOCUSED_VALIDATION
+STEP_RUNTIME_START
+STEP_RUNTIME_INTERACTION
+STEP_RUNTIME_ERROR_ANALYSIS
+STEP_RUNTIME_CORRECTION
+STEP_RUNTIME_RETEST
+STEP_RESTART
+STEP_POST_RESTART_VALIDATION
+STEP_FULL_AFFECTED_VALIDATION
+STEP_DIFF_REVIEW
+STEP_INDEPENDENT_REVIEW
+STEP_DOCUMENTATION_UPDATE
+STEP_PROJECT_KNOWLEDGE_UPDATE
+STEP_GIT_COMMIT
+STEP_GIT_PUSH
+STEP_PULL_REQUEST_UPDATE
+STEP_COMPLETE
+```
+
+Use the selected strategy as follows:
+
+* Context analysis: Luna or configured classification model
+* Implementation: GPT-5.3 Codex by default
+* Test generation: GPT-5.3 Codex
+* Runtime testing: deterministic terminal, process, API, and UI tools
+* Runtime error classification: Luna
+* Hard debugging: Claude Sonnet 5 after configured failure threshold
+* Independent review: Grok 4.5
+* Security review: static scanners plus Sol
+* Documentation research: Gemini
+* Final release judgment: Sol
+* Emergency escalation: Fable only when predefined conditions are met
+
+The current Phase 3 gates remain mandatory.
+
+A step cannot complete without applicable evidence for:
+
+* Implementation
+* Acceptance criteria
+* Automated tests
+* Runtime startup
+* Runtime interaction
+* Runtime error resolution
+* Restart validation
+* Full affected validation
+* Diff review
+* Independent review
+* Documentation
+* Project knowledge
+* Commit
+* Push
+* Pull-request update
+
+---
+
+# 9. Strategy setup through the desktop application
+
+Create a Strategy Center and first-run setup wizard.
+
+The user must be able to configure the recommended strategy from the packaged `.exe`.
+
+## Wizard steps
+
+### Step 1: Explain strategies
+
+Explain what strategies control and why the balanced strategy is recommended.
+
+### Step 2: Choose a strategy
+
+Display four cards:
+
+1. Balanced Multi-Agent Engineering — selected by default and marked Recommended
+2. Cost-Optimized Engineering
+3. Maximum Quality Engineering
+4. Privacy-First Local Engineering
+
+Each card must show:
+
+* Best for
+* Strengths
+* Tradeoffs
+* Approximate cost profile
+* Required providers
+* Setup difficulty
+* Privacy behavior
+
+### Step 3: Connect providers
+
+Provide connection cards for:
+
+* OpenAI/Codex
+* Anthropic/Claude
+* xAI/Grok
+* Google/Gemini
+* GitHub
+* Local model runtime
+* Optional GitHub Copilot
+
+Each card must include:
+
+* Connection status
+* Authentication method
+* Test connection
+* Reconnect
+* Disconnect
+* Required strategy roles
+* Optional strategy roles
+* Privacy information
+* Clear errors
+
+Never expose full credentials after saving.
+
+### Step 4: Review assignments
+
+Display:
+
+| Role | Selected model | Status | Fallback | Required? |
+
+Allow manual changes, but show warnings when the user deviates from the recommended strategy.
+
+### Step 5: Configure limits
+
+Allow:
+
+* Maximum cost per task
+* Maximum cost per run
+* Maximum retry attempts
+* Escalation thresholds
+* Maximum parallel analysis workers
+* Cloud escalation approval
+* Local-only mode
+* Fable escalation
+* GitHub automation approval
+
+Never allow this page to disable the core prompt approval gate.
+
+### Step 6: Dry-run verification
+
+Test:
+
+* Provider authentication
+* Model availability
+* Fallbacks
+* Local models
+* Git
+* GitHub
+* Test runners
+* Runtime tools
+* Secret redaction
+* Budget policy
+* Worktree support
+
+The dry run must not modify source files, commit, push, merge, deploy, or create production resources.
+
+### Step 7: Confirm
+
+Show the complete final configuration and require explicit confirmation before saving.
+
+---
+
+# 10. User-facing setup tutorial
+
+Create an in-app tutorial that can always be reopened.
+
+The tutorial must explain in small steps:
+
+1. What an agent strategy is.
+2. Why the balanced strategy is recommended.
+3. How to connect providers.
+4. How to test each provider.
+5. How to understand roles.
+6. How to change strategies.
+7. How budgets work.
+8. How retries and escalation work.
+9. How the Phase 3 step plan uses the strategy.
+10. Why deterministic tests remain authoritative.
+11. How local-only mode works.
+12. What happens when a provider is unavailable.
+13. How GitHub checkpoints work.
+14. How to inspect evidence.
+15. How to restore the recommended setup.
+
+Use clear language suitable for a non-technical Windows user.
+
+The setup must not require terminal commands for normal user configuration.
+
+---
+
+# 11. Data persistence and migrations
+
+Persist:
+
+* Selected strategy
+* Strategy version
+* Role assignments
+* Provider identifiers
+* Fallbacks
+* Budget limits
+* Retry limits
+* Escalation rules
+* Privacy mode
+* User confirmation
+* Connection tests
+* Resolved model IDs
+* Last availability check
+
+Support:
+
+* Global default strategy
+* Project-specific strategy override
+* Restore recommended strategy
+* Safe migrations
+* Missing provider handling
+* Outdated model identifiers
+
+Do not store raw API credentials in plain text.
+
+Do not alter historical run evidence when the strategy changes.
+
+---
+
+# 12. Runtime, security, and workflow rules
+
+Preserve the existing Phase 3 runtime requirements:
+
+* Real terminal execution
+* PowerShell and `cmd.exe` support
+* PTY support where needed
+* Process tracking
+* Child-process cleanup
+* Startup readiness detection
+* Runtime error detection
+* Automatic focused correction
+* Stop and restart validation
+* UI interaction testing
+* API testing
+* Evidence persistence
+
+The strategy system must not:
+
+* Bypass approval
+* Skip tests
+* Skip runtime testing
+* Skip restart testing
+* Mark skipped review as completed
+* Expose credentials
+* Send local-only code to cloud providers
+* Create unbounded retries
+* Allow an AI model to merge or release without deterministic gates
+
+---
+
+# 13. Documentation requirements
+
+Create or update:
+
+```text
+docs/agent-strategies.md
+docs/strategy-setup-guide.md
+docs/strategy-troubleshooting.md
+```
+
+Also update relevant sections of:
+
+```text
+README.md
+docs/architecture.md
+docs/security-model.md
+docs/developer-guide.md
+docs/codex-integration.md
+docs/github-integration.md
+docs/testing-strategy.md
+docs/troubleshooting.md
+CHANGELOG.md
+```
+
+Document:
+
+* Recommended strategy
+* Three alternatives
+* Role assignments
+* Escalation rules
+* Cost controls
+* Privacy behavior
+* Provider setup
+* Model alias resolution
+* Fallback behavior
+* Phase 3 integration
+* Strategy snapshot evidence
+* Troubleshooting
+
+Ensure documentation matches the actual implementation.
+
+---
+
+# 14. Required tests
+
+Add tests for:
+
+## Strategy tests
+
+* Recommended strategy is selected on a clean installation.
+* Three alternatives are available.
+* Strategy switching works.
+* Recommended strategy can be restored.
+* Project-specific overrides work.
+* Strategy versions persist.
+* Model aliases resolve.
+* Unavailable models are shown honestly.
+
+## Step-plan tests
+
+* The existing Phase 3 planner remains authoritative.
+* Every generated step contains routing information.
+* Each step receives a model assignment.
+* Routing is frozen after approval.
+* Material routing changes require approval.
+* Minor fallback changes are recorded correctly.
+* Invalid routing is rejected.
+* Step dependencies remain intact.
+
+## Execution tests
+
+* Codex is used as the default worker in the recommended strategy.
+* Sol is used for planning and release decisions.
+* Grok is used for independent review.
+* Sonnet is used after configured Codex failures.
+* Fable is only used after defined escalation conditions.
+* Deterministic tests remain authoritative.
+* No model can mark its own work as passed.
+* Retry limits are enforced.
+* Budget limits are enforced.
+* Infinite loops are impossible.
+
+## Setup tests
+
+* First-run wizard works.
+* Provider connection status is displayed correctly.
+* Test-connection buttons work.
+* Missing optional providers do not crash the app.
+* Local-only mode prevents cloud requests.
+* Secrets are redacted.
+* Configuration persists after restart.
+* Packaged Windows behavior matches development behavior.
+
+## Phase 3 regression tests
+
+* Prompt approval remains mandatory.
+* Approved plans remain frozen.
+* Steps remain locked until completion.
+* Runtime errors pause progression.
+* Restart testing remains mandatory.
+* Documentation gates remain enforced.
+* Project-knowledge gates remain enforced.
+* Commit and push gates remain enforced.
+* Pull-request checkpoint behavior remains enforced.
+* Existing run evidence remains readable.
+
+Run:
+
+```powershell
+npm test
+npm run test:unit
+npm run test:integration
+npm run test:e2e
+npm run test:security
+npm run lint
+npm run typecheck
+npm run build
+npm run package
+npm run doctor -- --json
+```
+
+---
+
+# 15. Proposed implementation milestones
+
+Use these as proposed workstreams for the existing Phase 3 step-plan generator.
+
+Do not execute them automatically without the existing approval process.
+
+## Milestone 1: Audit current Phase 3 and routing implementation
+
+* Inspect existing workflow.
+* Inspect provider adapters.
+* Inspect strategy or routing code.
+* Record reusable components.
+* Record missing functionality.
+* Create baseline evidence.
+* Commit and push only after the current workflow gates pass.
+
+## Milestone 2: Strategy schemas and persistence
+
+* Add strategy profiles.
+* Add role assignments.
+* Add provider aliases.
+* Add database migration.
+* Add configuration validation.
+* Add tests.
+* Update documentation and project knowledge.
+* Complete the per-step GitHub checkpoint.
+
+## Milestone 3: Recommended strategy integration
+
+* Add Balanced Multi-Agent Engineering.
+* Make it the default.
+* Add role-routing logic.
+* Add strategy snapshot generation.
+* Integrate with approved step plans.
+* Add tests and evidence.
+
+## Milestone 4: Three alternative strategies
+
+* Add Cost-Optimized Engineering.
+* Add Maximum Quality Engineering.
+* Add Privacy-First Local Engineering.
+* Add tradeoffs, setup requirements, and fallback rules.
+* Add tests and documentation.
+
+## Milestone 5: Strategy Center and setup wizard
+
+* Add strategy selection UI.
+* Add provider connection cards.
+* Add role assignment review.
+* Add budget and escalation settings.
+* Add dry-run verification.
+* Add confirmation flow.
+* Add restart and persistence tests.
+
+## Milestone 6: Strategy-aware step execution
+
+* Route planning, coding, testing, review, and escalation through the selected strategy.
+* Preserve the existing Phase 3 state machine.
+* Add per-step routing evidence.
+* Add escalation explanations.
+* Add bounded retry behavior.
+
+## Milestone 7: Tutorial and documentation
+
+* Add the in-app tutorial.
+* Update setup documentation.
+* Update architecture and security documentation.
+* Add troubleshooting guidance.
+* Validate all documented commands and configuration fields.
+
+## Milestone 8: Complete validation
+
+* Run all automated tests.
+* Run the real application.
+* Test the wizard.
+* Test every strategy.
+* Test missing providers.
+* Test local-only mode.
+* Test restart persistence.
+* Test Phase 3 step execution.
+* Test GitHub checkpoints.
+* Package the Windows application.
+* Perform final independent review.
+* Generate the final report.
+
+Each milestone must follow the existing Phase 3 process:
+
+```text
+Plan
+→ User approval
+→ Freeze
+→ Implement
+→ Test
+→ Start real application
+→ Test real behavior
+→ Fix errors
+→ Stop
+→ Restart
+→ Retest
+→ Review diff
+→ Update documentation
+→ Update project knowledge
+→ Commit
+→ Push
+→ Update pull request
+→ Unlock next milestone
+```
+
+---
+
+# 16. Definition of done
+
+This task is complete only when:
+
+* The existing Phase 3 workflow remains the only authoritative execution workflow.
+* The recommended strategy is selected by default.
+* The application explains why it is recommended.
+* Three alternatives are implemented.
+* The user can configure the strategy through the desktop application.
+* The user does not need the terminal for normal setup.
+* Each Phase 3 implementation step contains model-routing information.
+* The approved step plan freezes the selected routing.
+* Provider aliases resolve safely.
+* Missing providers are reported honestly.
+* Fallbacks are visible and controlled.
+* Budget and retry limits are enforced deterministically.
+* Codex is the default implementation worker in the recommended strategy.
+* Independent review uses a separate model family where available.
+* Sol is used for planning, high-risk judgment, and release decisions.
+* Fable is restricted to explicit emergency escalation.
+* Deterministic tests remain authoritative.
+* Local-only mode prevents unauthorized cloud processing.
+* Prompt approval cannot be bypassed.
+* Runtime testing and restart testing remain mandatory.
+* Documentation and project knowledge are updated per step.
+* Git commits, pushes, and pull-request checkpoints remain mandatory according to the existing workflow.
+* Existing functionality remains intact.
+* All relevant tests pass or are documented as blocked.
+* The packaged Windows application works.
+* A complete implementation report is generated.
+
+Create:
+
+```text
+docs/strategy-orchestration-implementation-report.md
+```
+
+The report must include:
+
+* Implemented functionality
+* Default strategy
+* Three alternatives
+* Phase 3 integration details
+* Provider and model routing
+* Setup wizard behavior
+* Database migrations
+* Tests added
+* Commands executed
+* Passed checks
+* Failed or blocked checks
+* Security considerations
+* Remaining limitations
+* Confirmation that approval gates were preserved
+* Confirmation that local-only mode behaves correctly
+* Confirmation that unavailable providers are reported honestly
+
+Begin by auditing the current repository and current Phase 3 workflow.
+
+Do not create a second workflow.
+
+Integrate the strategy system into the existing step-by-step planning and step-gated execution process.
+
+```
+```
