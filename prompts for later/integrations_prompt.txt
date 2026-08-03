@@ -1,0 +1,1235 @@
+Below is a detailed implementation prompt tailored to your Personal Codex Agent README.
+
+A key architectural finding is that these tools do not share one universal interface. The safest solution is a provider-adapter system combining Codex app-server, ACP, JSON/JSONL CLI adapters, and a generic custom-provider system. Also, Amazon Q CLI has been renamed to Kiro CLI. [AWS documentation](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line.html)
+
+````markdown
+# Personal Codex Agent — Universal AI CLI, Git and GitHub Desktop Integration
+
+## Mission
+
+Extend the existing Personal Codex Agent into a complete Windows-first desktop application that allows the user to install, authenticate, configure, update, use, monitor and remove AI coding agents and Git/GitHub integrations entirely from the graphical application.
+
+The user must not need to open PowerShell, Command Prompt, Git Bash, npm, GitHub CLI or any other terminal for normal usage.
+
+The final product must be distributable as a Windows `.exe` installer. After launching the installer and application, the user must be able to complete the entire setup through the GUI.
+
+The application must support current and future AI coding CLIs through a provider-adapter architecture rather than hardcoding one provider into the application.
+
+Do not remove or weaken the existing approval workflow:
+
+- The application must still convert requests into reviewed specifications.
+- The user must still approve the frozen prompt before implementation.
+- Code must still run inside isolated Git worktrees where appropriate.
+- Tests, diffs, quality gates and evidence reports must remain active.
+- GitHub and deployment stages must remain skipped honestly when they are not configured.
+- No provider may silently bypass the application's approval system.
+
+## Existing application context
+
+The existing project is:
+
+- Windows-first.
+- Built with Electron, React, TypeScript and a loopback-only Node daemon.
+- Uses SQLite for run history.
+- Contains Git, GitHub, deployment, quality-gate and evidence-report adapters.
+- Contains a VS Code workspace bridge.
+- Uses Codex app-server as the primary coding-agent integration.
+- Has setup, doctor, testing, packaging and security documentation.
+- Currently expects optional integrations such as VS Code, Codex and GitHub CLI to be installed separately.
+- Currently has development commands such as `npm run dev`, `npm run build`, `npm test`, `npm run doctor` and `npm run package`.
+
+Preserve the existing architecture and conventions. First inspect the repository and identify the actual file structure, current APIs, database schema, renderer routes, daemon endpoints, packaging configuration and test setup. Do not blindly create a parallel architecture.
+
+## Primary user outcome
+
+From the desktop application, the user must be able to:
+
+1. Install missing prerequisites.
+2. Install supported AI coding CLIs.
+3. Sign in to each provider through a browser, device-code flow or secure API-key form.
+4. See whether each provider is installed, authenticated, available and healthy.
+5. Select an AI provider and model from the application.
+6. Start, resume, pause, cancel and inspect agent sessions.
+7. Stream agent output, tool calls, file changes, permission requests and errors in the application.
+8. Run agents inside the application's existing isolated worktree workflow.
+9. Review diffs and test results.
+10. Connect GitHub without manually using `gh auth login`.
+11. Clone, browse and manage GitHub repositories.
+12. Create branches, commits, pull requests and issues.
+13. View pull-request checks and GitHub Actions results.
+14. Push changes to GitHub only after explicit confirmation.
+15. Install, update and uninstall supported integrations through the GUI.
+16. Add custom AI providers later without modifying the core application.
+
+## Important design principle
+
+Do not claim that every AI CLI supports the same feature set.
+
+Each provider must expose explicit capabilities such as:
+
+```ts
+type ProviderCapabilities = {
+  interactive: boolean;
+  headless: boolean;
+  streaming: boolean;
+  jsonOutput: boolean;
+  jsonlOutput: boolean;
+  acp: boolean;
+  appServer: boolean;
+  modelListing: boolean;
+  sessionResume: boolean;
+  sessionFork: boolean;
+  cancellation: boolean;
+  worktrees: boolean;
+  mcp: boolean;
+  permissionRequests: boolean;
+  fileChanges: boolean;
+  shellExecution: boolean;
+  usageReporting: boolean;
+  browserAuthentication: boolean;
+  deviceAuthentication: boolean;
+  apiKeyAuthentication: boolean;
+};
+````
+
+The UI must always show unsupported features honestly. For example:
+
+* “Streaming unavailable for this provider.”
+* “Session resume is not supported.”
+* “This provider can run read-only reviews but cannot safely mediate write permissions.”
+* “This provider is installed but not authenticated.”
+* “This provider requires an API key for headless mode.”
+
+## Provider integration strategy
+
+Implement the following protocol layers.
+
+### 1. Codex app-server adapter
+
+Use Codex app-server for the deepest Codex integration.
+
+Support:
+
+* Local app-server startup.
+* JSONL-over-stdio transport.
+* Optional localhost WebSocket transport.
+* `initialize`.
+* `account/read`.
+* `account/login/start`.
+* Browser login.
+* Device-code login.
+* API-key login.
+* `account/login/completed`.
+* `account/updated`.
+* `thread/start`.
+* `thread/resume`.
+* `thread/fork`.
+* `turn/start`.
+* `turn/steer`.
+* `turn/interrupt`.
+* Streaming turn and item events.
+* File changes.
+* Diffs.
+* Command execution events.
+* Permission requests.
+* User-input requests.
+* Model discovery.
+* MCP status.
+* Thread history.
+* Session cancellation.
+* Clean process shutdown.
+
+Prefer app-server over parsing the Codex terminal UI.
+
+Use `codex exec --json` as a fallback for simple non-interactive operations when app-server is unavailable.
+
+Never read or copy Codex tokens directly from `auth.json`. Use Codex’s supported authentication methods and app-server account endpoints.
+
+### 2. Generic ACP adapter
+
+Implement an Agent Client Protocol adapter for providers that expose ACP over stdio.
+
+The ACP adapter must:
+
+* Launch the provider as a child process.
+* Communicate over JSON-RPC.
+* Support newline-delimited JSON messages.
+* Send `initialize`.
+* Negotiate protocol and capabilities.
+* Support `auth/login` when advertised.
+* Support `session/new`.
+* Support `session/prompt`.
+* Support `session/update`.
+* Support `session/cancel`.
+* Support permission requests.
+* Support session resume when advertised.
+* Support session close when advertised.
+* Capture stderr separately from protocol stdout.
+* Reject malformed protocol messages.
+* Detect process hangs and crashes.
+* Kill the complete process tree on cancellation.
+* Normalize ACP events into the application’s shared event schema.
+
+Implement ACP v1 first. Add feature detection for future ACP versions rather than assuming version-specific behavior.
+
+Do not confuse Agent Client Protocol with unrelated protocols using the ACP abbreviation.
+
+### 3. JSON/JSONL CLI adapter
+
+For providers without ACP or app-server support, implement a secure CLI adapter.
+
+The adapter must support:
+
+* Version detection.
+* Command discovery.
+* Safe argument arrays.
+* Hidden Windows process execution.
+* Working-directory selection.
+* Environment injection.
+* Prompt delivery through arguments or stdin.
+* JSON output parsing.
+* JSONL streaming parsing.
+* Plain-text fallback.
+* Exit-code handling.
+* Timeout handling.
+* Cancellation.
+* Process-tree cleanup.
+* Session ID extraction.
+* Resume support where available.
+* Redaction of secrets and sensitive paths.
+* Provider-specific permission flags.
+
+Do not use `shell: true` by default.
+
+On Windows, implement safe handling for `.cmd` launchers and test command quoting thoroughly.
+
+### 4. One-shot text adapter
+
+Support providers such as Aider that offer useful one-shot scripting but do not provide a stable event protocol.
+
+This adapter must:
+
+* Run the provider in a worktree.
+* Capture stdout and stderr.
+* Display output as plain text.
+* Detect file changes through Git.
+* Detect commits created by the provider.
+* Apply application-level approval before the provider is allowed to write.
+* Mark event-level tool visibility as unavailable.
+* Never pretend that unobserved provider actions were individually approved.
+
+## Initial provider registry
+
+Create a built-in provider registry containing the following providers. Verify current command names and flags during implementation instead of assuming they remain unchanged.
+
+### OpenAI Codex
+
+* Executable: `codex`
+* Deep protocol: `codex app-server`
+* Fallback: `codex exec --json`
+* Authentication: ChatGPT OAuth, device code, API key, supported access token
+* Main capabilities: app-server, JSONL, streaming, sessions, approvals, MCP, model listing
+
+### Anthropic Claude Code
+
+* Executable: `claude`
+* Headless mode: `claude -p`
+* Structured output: JSON and stream-JSON
+* Authentication: browser login or `ANTHROPIC_API_KEY`
+* Windows installation: native installer, WinGet or npm where appropriate
+* Support session continuation and provider-specific allowed-tool settings
+* Use `--bare` only when explicitly requested because it disables automatic discovery of project configuration, hooks, skills, plugins and MCP servers
+
+### Google Gemini CLI
+
+* Executable: `gemini`
+* Headless mode: `gemini -p`
+* Structured output: JSON and streaming JSON
+* Authentication: Google login, Gemini API key or Vertex AI
+* Support `GEMINI_API_KEY`, `GOOGLE_API_KEY`, Vertex configuration and Google account login
+* Never write API keys to project `.env` files by default
+
+### xAI Grok Build
+
+* Executable: `grok`
+* Headless mode: `grok -p`
+* Structured output: JSON and streaming JSON
+* ACP mode: `grok agent stdio`
+* Authentication: browser login, device authentication or `XAI_API_KEY`
+* Support provider sessions, worktrees, permissions and model listing where advertised
+* Detect and display Grok CLI version and capabilities
+
+### GitHub Copilot CLI
+
+* Executable: `copilot`
+* Headless mode: `copilot -p`
+* Support `--allow-tool`, `--allow-url`, `--add-dir`, `--model` and secret redaction options
+* Authentication: browser login or supported GitHub token
+* Installation: WinGet, npm or official executable
+* Never enable `--allow-all` or `--yolo` automatically
+* Translate application permissions into the narrowest possible Copilot tool permissions
+
+### Cursor Agent CLI
+
+* Executable: `agent`
+* Headless mode: `agent --print`
+* Structured output: text, JSON and stream-JSON
+* Support `--workspace`, `--model`, `--resume`, `--continue`, `--sandbox`, `--trust` and worktree flags where available
+* Authentication: Cursor login or API key
+* Detect ACP support if available
+* Do not require the Cursor desktop IDE unless the official CLI requires it for a specific feature
+
+### OpenCode
+
+* Executable: `opencode`
+* Headless mode: `opencode run`
+* Structured output: `--format json`
+* Server mode: `opencode serve`
+* ACP mode: `opencode acp`
+* Support sessions, model discovery, MCP, permissions and worktrees where available
+* Support local configuration without overwriting the user’s existing OpenCode configuration unless explicitly selected
+
+### Qwen Code
+
+* Executable: `qwen`
+* Headless mode: `qwen -p`
+* Structured output: JSON and stream-JSON
+* Support session continuation and resume
+* Detect daemon/ACP capabilities where available
+* Support API-key and provider-specific authentication
+* Ensure large JSON outputs do not block the daemon
+
+### Cline CLI
+
+* Executable: `cline`
+* Headless mode: direct prompt invocation
+* Structured output: `--json`
+* ACP mode: `--acp`
+* Support provider selection, model selection, permission settings, session IDs and working directories
+* Respect Cline command allow/deny policy
+* Never expose Cline credentials in logs
+
+### Kiro CLI
+
+Amazon Q Developer CLI has been renamed to Kiro CLI. Treat Kiro as the current provider identity while preserving migration and compatibility labels.
+
+* Executable: `kiro-cli`
+* Headless mode: `kiro-cli chat --no-interactive`
+* Authentication: browser login, device flow or `KIRO_API_KEY`
+* Permission flags: `--trust-tools` and `--trust-all-tools`
+* Never enable `--trust-all-tools` by default
+* Installation: official Windows installer
+* Show the provider as “Kiro CLI (formerly Amazon Q CLI)” in migration documentation
+
+### Aider
+
+* Executable: `aider`
+* One-shot mode: `aider --message`
+* Support plain text output
+* Detect file changes through Git
+* Disable or control automatic commits
+* Treat Python scripting integration as optional because it may not be a stable public API
+* Do not claim streaming tool-level support if unavailable
+
+### Local model backends
+
+Add a separate “Local model backends” category for:
+
+* Ollama.
+* LM Studio.
+* OpenAI-compatible local servers.
+* Other compatible local inference servers.
+
+Do not treat these as coding agents unless they expose file, shell, session and approval capabilities. A local model backend may be used by an agent adapter or provider such as Aider, OpenCode, Cline or a future internal agent runtime.
+
+## Future-provider support
+
+Implement a generic custom-provider system.
+
+The user must be able to add a provider from the GUI with:
+
+* Display name.
+* Provider ID.
+* Executable path.
+* Version command.
+* Authentication method.
+* Prompt command template.
+* Resume command template.
+* Model command.
+* Output mode.
+* JSON/JSONL parser selection.
+* Working-directory behavior.
+* Permission flags.
+* Environment variable mappings.
+* Documentation URL.
+* Installation instructions.
+* Whether the provider supports ACP.
+* Whether the provider is trusted.
+
+For security:
+
+* Do not allow arbitrary shell scripts to execute automatically.
+* Use explicit executable paths and argument arrays.
+* Require a confirmation before saving a custom provider.
+* Show the exact command preview with secrets redacted.
+* Run a harmless diagnostic before enabling the provider.
+* Do not allow custom providers to bypass the approval and worktree system.
+* Store custom provider definitions in SQLite with migrations and validation.
+
+Create a provider catalog that can be updated later, but do not allow a remote catalog to install or execute arbitrary code.
+
+Remote provider catalogs must:
+
+* Use HTTPS.
+* Be allowlisted by domain.
+* Include a signed manifest or verifiable checksum.
+* Include provider version, publisher, source URL and documentation URL.
+* Require user confirmation before installation.
+* Never silently replace an existing provider.
+* Support rollback to the previous provider definition.
+
+## Shared internal interfaces
+
+Create typed interfaces similar to:
+
+```ts
+interface AgentProvider {
+  id: string;
+  metadata(): ProviderMetadata;
+  detect(): Promise<InstallationStatus>;
+  install(options: InstallOptions): Promise<InstallResult>;
+  update(options: UpdateOptions): Promise<UpdateResult>;
+  uninstall(options: UninstallOptions): Promise<UninstallResult>;
+  diagnose(): Promise<DiagnosticResult>;
+  authenticate(options: AuthOptions): Promise<AuthResult>;
+  logout(): Promise<void>;
+  getAuthStatus(): Promise<AuthStatus>;
+  listModels(): Promise<ModelInfo[]>;
+  getCapabilities(): Promise<ProviderCapabilities>;
+  startSession(options: StartSessionOptions): Promise<AgentSession>;
+  resumeSession(options: ResumeSessionOptions): Promise<AgentSession>;
+  sendPrompt(session: AgentSession, prompt: string): Promise<void>;
+  cancel(session: AgentSession): Promise<void>;
+  dispose(session: AgentSession): Promise<void>;
+}
+```
+
+Create shared normalized events:
+
+```ts
+type AgentEvent =
+  | SessionStartedEvent
+  | SessionReadyEvent
+  | AssistantDeltaEvent
+  | AssistantMessageEvent
+  | ReasoningEvent
+  | ToolCallEvent
+  | ToolResultEvent
+  | PermissionRequestEvent
+  | UserInputRequestEvent
+  | FileChangeEvent
+  | DiffUpdatedEvent
+  | TestResultEvent
+  | UsageEvent
+  | WarningEvent
+  | ErrorEvent
+  | SessionCompletedEvent
+  | SessionCancelledEvent;
+```
+
+Every event must include:
+
+* Application run ID.
+* Provider ID.
+* Provider session ID where available.
+* Timestamp.
+* Workspace path.
+* Worktree path.
+* Redacted provider payload.
+* Sequence number.
+* Whether the event is raw, normalized or inferred.
+
+Store raw provider output separately from normalized output so debugging remains possible without exposing secrets.
+
+## Process supervisor
+
+Create a daemon-owned process supervisor.
+
+It must:
+
+* Launch providers with hidden Windows windows.
+* Never expose raw child-process APIs to the renderer.
+* Track process IDs and process trees.
+* Support graceful cancellation.
+* Force terminate stuck process trees.
+* Capture stdout and stderr separately.
+* Apply output size limits.
+* Apply inactivity timeouts.
+* Apply maximum runtime limits.
+* Detect interactive prompts that cannot be satisfied.
+* Return a clear error instead of hanging indefinitely.
+* Redact API keys, OAuth tokens, cookies and authorization headers.
+* Prevent provider processes from inheriting unrelated environment variables.
+* Allow only explicitly configured environment variables.
+* Provide process health and diagnostic events to the UI.
+
+## Approval and safety integration
+
+Every provider must use the existing application approval lifecycle:
+
+1. User submits a request.
+2. Application creates a draft specification.
+3. User reviews and revises it.
+4. Application freezes the approved prompt.
+5. Application creates or reuses an isolated Git worktree.
+6. Application starts the selected provider inside that worktree.
+7. Provider receives only the approved prompt and permitted context.
+8. Provider permissions are constrained according to the application approval mode.
+9. Tool calls and file changes are streamed into the UI.
+10. The user can approve, deny, pause or cancel when supported.
+11. Tests and quality gates run.
+12. Diff and evidence report are generated.
+13. GitHub actions remain confirmation-gated.
+
+Never automatically pass any of the following flags unless the user explicitly selects an equivalent unsafe mode:
+
+* `--yolo`
+* `--full-auto`
+* `--allow-all`
+* `--allow-all-tools`
+* `--allow-all-paths`
+* `--trust-all-tools`
+* `--always-approve`
+* `--dangerously-skip-permissions`
+* Any provider-specific unrestricted permission mode
+
+If a provider cannot safely support application-level permission mediation:
+
+* Allow it for read-only review mode if safe.
+* Allow write mode only inside a disposable isolated worktree with strict provider flags.
+* Otherwise mark write execution as unavailable.
+* Explain the limitation in the UI.
+* Do not pretend that unsafe execution is equivalent to normal approval.
+
+## Setup and Connections page
+
+Create a complete GUI setup page containing:
+
+### System prerequisites
+
+Display:
+
+* Windows version.
+* CPU architecture.
+* Available memory.
+* Git status.
+* Git Credential Manager status.
+* Node runtime status.
+* PowerShell status.
+* Git Bash status.
+* VS Code status.
+* GitHub CLI status.
+* Provider installation status.
+* Network connectivity.
+* Certificate/TLS status.
+* Required disk space.
+* Application version.
+
+Each prerequisite must have:
+
+* Status.
+* Version.
+* Installation source.
+* Install button.
+* Repair button.
+* Update button.
+* Remove button where safe.
+* Diagnostic details.
+* Documentation link.
+
+### Installation manager
+
+Support:
+
+* Install one item.
+* Install selected items.
+* Install all recommended items.
+* Retry failed installation.
+* Cancel installation.
+* Show progress.
+* Show child-process output in an in-app log panel.
+* Save installation receipts.
+* Show publisher and source.
+* Show whether administrator privileges are required.
+* Offer per-user installation first.
+* Require explicit confirmation for elevated installation.
+* Never run an unreviewed PowerShell script from an arbitrary website.
+
+Preferred installation order:
+
+1. Git for Windows and Git Credential Manager.
+2. Managed Node.js runtime if required by provider installers.
+3. Codex.
+4. Claude Code.
+5. Gemini CLI.
+6. Grok Build.
+7. GitHub Copilot CLI.
+8. Cursor Agent CLI.
+9. OpenCode.
+10. Qwen Code.
+11. Cline CLI.
+12. Kiro CLI.
+13. Aider.
+14. Optional local model backends.
+15. Optional VS Code bridge.
+
+If a package manager is unavailable:
+
+* Use the provider’s official signed installer where possible.
+* Download it to a temporary directory.
+* Verify signature or checksum.
+* Install without administrator privileges where possible.
+* Delete temporary installer files after successful installation.
+* Show a manual fallback only when automatic installation is technically impossible.
+
+Do not make one missing provider prevent the desktop application from starting.
+
+### Authentication manager
+
+Authentication must happen through the GUI.
+
+Support:
+
+* Browser OAuth.
+* Device-code flow.
+* API-key entry.
+* Copyable device code.
+* Open verification URL button.
+* Polling status.
+* Cancel login.
+* Re-authenticate.
+* Log out.
+* Authentication health check.
+* Account identity display.
+* Provider plan/account information where available.
+* Clear explanation of whether usage is billed through a subscription or API account.
+
+Use the provider’s native login flow whenever possible.
+
+For provider API keys:
+
+* Store them in Windows Credential Manager or DPAPI-protected storage.
+* Never store raw keys in SQLite.
+* Never store raw keys in `.env` files by default.
+* Never include keys in command arguments.
+* Inject keys only into the provider child process.
+* Redact them from all logs and reports.
+* Provide a delete/revoke action.
+* Never send keys to the renderer.
+
+For Codex, use Codex app-server account methods.
+
+For GitHub, implement app-managed OAuth device authentication or an equally secure native-app flow. Do not require the user to run `gh auth login`.
+
+## Git integration
+
+The application must provide a complete in-app Git interface.
+
+Use the existing Git adapter if present. Otherwise implement a daemon-owned Git service that invokes Git safely in the background.
+
+Support:
+
+* Detect repository.
+* Open repository.
+* Clone repository.
+* Initialize repository.
+* Add/remove remote.
+* Fetch.
+* Pull.
+* Push.
+* Branch list.
+* Create branch.
+* Switch branch.
+* Rename branch.
+* Delete branch.
+* Tags.
+* Commit history.
+* Stage files.
+* Unstage files.
+* Commit changes.
+* View diff.
+* View staged diff.
+* View untracked files.
+* Stash.
+* Apply stash.
+* Worktree creation.
+* Worktree removal.
+* Checkout commit.
+* Revert commit.
+* Merge.
+* Rebase.
+* Cherry-pick.
+* Git LFS detection.
+* Submodule detection.
+* Git signing detection.
+* Conflict detection.
+* Conflict guidance.
+
+Destructive operations must require confirmation:
+
+* Delete branch.
+* Reset.
+* Clean untracked files.
+* Rebase.
+* Force push.
+* Remove remote.
+* Remove worktree.
+* Delete stash.
+* Rewrite history.
+
+Never expose Git credentials in process arguments or logs.
+
+Prefer HTTPS with Git Credential Manager for GitHub. Support SSH as an optional user-selected method.
+
+## GitHub integration
+
+Implement GitHub as a first-class application service, not merely as a wrapper around the GitHub CLI.
+
+Use GitHub REST and GraphQL APIs through a typed client such as Octokit where appropriate.
+
+Support:
+
+### Authentication
+
+* GitHub account login from the GUI.
+* OAuth device flow for a native desktop application.
+* Secure token storage.
+* Account validation after login.
+* Logout.
+* Token revocation guidance.
+* Scope display.
+* Reauthorization when additional permission is required.
+* GitHub Enterprise hostname support.
+* Separate credentials per GitHub host.
+
+Never hardcode a client secret into the Windows executable.
+
+Design the authentication layer so it can later support GitHub Apps with short-lived, fine-grained user access tokens.
+
+### Repository features
+
+* List personal repositories.
+* List organization repositories.
+* Search repositories.
+* Show repository metadata.
+* Clone repository.
+* Open repository locally.
+* Fork repository.
+* Create repository.
+* Archive repository only with explicit confirmation.
+* Rename repository only with explicit confirmation.
+* Manage visibility only with explicit confirmation.
+* Add/remove collaborators only with explicit confirmation.
+
+### Pull requests
+
+* List pull requests.
+* Filter pull requests.
+* Show pull-request details.
+* Show changed files.
+* Show commits.
+* Show reviews.
+* Show review comments.
+* Create pull request from the current worktree branch.
+* Generate title and body through the selected agent, but require confirmation before creation.
+* Request reviewers.
+* Add labels.
+* Add milestones.
+* Comment.
+* Approve.
+* Request changes.
+* Close.
+* Reopen.
+* Merge only after explicit confirmation.
+* Never enable auto-merge by default.
+
+### Issues
+
+* List issues.
+* Search issues.
+* Create issue.
+* Edit issue.
+* Comment.
+* Close.
+* Reopen.
+* Add labels.
+* Assign users.
+* Link issue to a run.
+
+### GitHub Actions
+
+* List workflows.
+* List workflow runs.
+* Show workflow status.
+* Show job status.
+* Show logs where API permissions allow.
+* Download artifacts.
+* Dispatch workflow.
+* Cancel workflow.
+* Rerun workflow.
+* Open workflow in browser.
+* Never dispatch, cancel or rerun without confirmation.
+
+### GitHub-aware agent workflows
+
+Allow the user to:
+
+* Select a GitHub repository.
+* Select an issue.
+* Generate a specification from the issue.
+* Approve the specification.
+* Create an isolated worktree.
+* Assign the task to a selected provider.
+* Run tests.
+* Review the diff.
+* Create a branch.
+* Commit.
+* Push.
+* Create a pull request.
+* Monitor checks.
+* Prepare a final evidence report.
+
+At every write step display:
+
+* Exact repository.
+* Exact branch.
+* Exact files changed.
+* Exact GitHub operation.
+* Required permission.
+* Whether the action is reversible.
+* Confirmation button.
+
+The GitHub CLI may remain an optional adapter for users who want it, but it must not be required for GitHub functionality.
+
+## UI pages
+
+Add or extend these pages:
+
+1. Setup & Connections.
+2. AI Providers.
+3. Provider Details.
+4. Authentication.
+5. Model Picker.
+6. Active Sessions.
+7. Session Transcript.
+8. Permission Requests.
+9. Worktrees.
+10. Git Repository.
+11. GitHub.
+12. Pull Requests.
+13. Issues.
+14. GitHub Actions.
+15. Installation History.
+16. Diagnostics.
+17. Security & Credentials.
+18. Provider Compatibility.
+19. Application Settings.
+20. Troubleshooting.
+
+The UI must clearly distinguish:
+
+* Installed.
+* Not installed.
+* Installed but unauthenticated.
+* Authenticated.
+* Degraded.
+* Unsupported.
+* Blocked by policy.
+* Update available.
+* Requires administrator privileges.
+* Requires a subscription.
+* Requires an API key.
+* Requires an external application.
+
+## Application packaging
+
+Update the Windows packaging so the user can install and run the application without Node.js, npm or terminal commands.
+
+The packaged application must:
+
+* Bundle the Electron runtime.
+* Bundle the daemon.
+* Bundle the renderer.
+* Start the daemon automatically.
+* Use a random or reserved loopback port.
+* Authenticate renderer-to-daemon requests with the existing token model.
+* Hide all background child-process console windows.
+* Write logs to an application data directory.
+* Handle application restarts cleanly.
+* Recover interrupted runs.
+* Preserve SQLite data.
+* Preserve evidence reports.
+* Support clean uninstall.
+* Offer a per-user installer by default.
+* Produce a portable build where practical.
+* Produce SHA-256 checksums.
+* Clearly mark unsigned builds.
+* Never place secrets inside the packaged resources.
+
+Add a final artifact such as:
+
+```text
+artifacts/desktop/Personal Codex Agent Setup.exe
+artifacts/desktop/Personal Codex Agent.exe
+artifacts/SHA256SUMS.txt
+```
+
+Retain the development build commands for contributors, but make them optional rather than required for end users.
+
+Update the README so the primary quick-start path is:
+
+1. Download the `.exe`.
+2. Install it.
+3. Launch Personal Codex Agent.
+4. Complete Setup & Connections.
+5. Connect a local project or GitHub repository.
+6. Choose an AI provider.
+7. Approve the specification.
+8. Execute the work.
+
+Keep terminal commands only in the developer documentation and troubleshooting appendix.
+
+## Database changes
+
+Create safe SQLite migrations for:
+
+* Providers.
+* Provider installations.
+* Provider versions.
+* Provider capabilities.
+* Provider authentication status.
+* Provider configuration.
+* Secure credential references.
+* Agent sessions.
+* Provider session IDs.
+* Normalized events.
+* Raw event references.
+* Installation receipts.
+* GitHub accounts.
+* GitHub hosts.
+* Repository metadata.
+* Pull requests.
+* Issues.
+* Workflow runs.
+* Git operations.
+* Permission decisions.
+* Audit events.
+* Provider errors.
+
+Never store raw credentials in SQLite.
+
+## Testing requirements
+
+Add comprehensive tests.
+
+### Unit tests
+
+Test:
+
+* Provider registry validation.
+* Capability negotiation.
+* Command construction.
+* Windows argument escaping.
+* Executable resolution.
+* Version parsing.
+* JSON parsing.
+* JSONL parsing.
+* ACP message parsing.
+* Codex app-server messages.
+* Provider event normalization.
+* Secret redaction.
+* Path confinement.
+* Worktree validation.
+* GitHub API error mapping.
+* GitHub scope handling.
+* Installation manifest validation.
+* Checksum validation.
+* Process timeout logic.
+* Process-tree termination.
+* Database migrations.
+* Renderer-to-daemon authorization.
+
+### Fake-provider tests
+
+Create fake provider executables for:
+
+* Successful JSON output.
+* Successful JSONL streaming.
+* ACP startup.
+* ACP permission request.
+* ACP cancellation.
+* Malformed JSON.
+* Provider crash.
+* Provider timeout.
+* Provider asking for unsupported input.
+* Provider emitting a secret.
+* Provider modifying files.
+* Provider attempting to write outside the worktree.
+
+### Integration tests
+
+Test:
+
+* SQLite persistence.
+* Git repositories.
+* Bare Git remotes.
+* Worktree creation.
+* Diff collection.
+* Commit handling.
+* GitHub API mocks.
+* OAuth device-flow polling.
+* Installation-manager mocks.
+* Provider login state.
+* Resume and cancellation.
+* App restart recovery.
+* Evidence generation.
+
+### End-to-end tests
+
+Test the packaged application:
+
+* First launch.
+* Setup wizard.
+* Install provider.
+* Authenticate provider.
+* Select repository.
+* Generate specification.
+* Approve specification.
+* Create worktree.
+* Run provider.
+* Stream events.
+* Approve or deny a permission.
+* Run quality gates.
+* Review diff.
+* Commit changes.
+* Create pull request.
+* View GitHub checks.
+* Restart application during a run.
+* Recover the run.
+* Uninstall provider.
+* Uninstall application.
+
+### Security tests
+
+Verify:
+
+* Renderer cannot access Node APIs.
+* Renderer cannot spawn processes.
+* Renderer cannot read secrets.
+* Daemon only listens on loopback.
+* Invalid daemon tokens are rejected.
+* Provider arguments cannot inject commands.
+* Secrets are redacted from UI, logs and evidence reports.
+* Paths cannot escape the selected worktree.
+* GitHub tokens are not written to command arguments.
+* Remote provider catalogs cannot execute arbitrary installers.
+* Dangerous Git and GitHub operations require confirmation.
+* Provider write operations cannot bypass the application approval gate.
+
+## Documentation changes
+
+Update:
+
+* `README.md`
+* `docs/architecture.md`
+* `docs/user-setup-guide.md`
+* `docs/developer-guide.md`
+* `docs/codex-integration.md`
+* `docs/github-integration.md`
+* `docs/security-model.md`
+* `docs/testing-strategy.md`
+* `docs/troubleshooting.md`
+* `CHANGELOG.md`
+
+Add:
+
+* `docs/provider-compatibility.md`
+* `docs/gui-only-setup.md`
+* `docs/provider-development.md`
+* `docs/credential-storage.md`
+* `docs/installation-security.md`
+
+The documentation must include:
+
+* Provider capability matrix.
+* Installation source.
+* Authentication method.
+* Windows requirements.
+* Headless support.
+* Streaming support.
+* Resume support.
+* Worktree support.
+* Known limitations.
+* Last verified date.
+* Official documentation URL.
+* Whether the integration is first-class, ACP, CLI, custom or preview-only.
+
+Do not claim that a provider is supported merely because its executable can be detected. Mark it supported only after the integration tests pass.
+
+## Step-by-step implementation plan
+
+### Phase 0 — Repository audit
+
+* Inspect the complete repository.
+* Identify the existing daemon, renderer, Electron main process, database layer, Git adapter, GitHub adapter, Codex adapter, packaging configuration and tests.
+* Produce an implementation plan mapped to actual files.
+* Identify conflicts with existing architecture.
+* Do not duplicate existing functionality.
+* Do not remove working behavior.
+
+### Phase 1 — Shared contracts
+
+* Add provider, capability, session and event types.
+* Add database migrations.
+* Add normalized event schemas.
+* Add API contracts between renderer and daemon.
+* Add validation and redaction utilities.
+* Add fake provider fixtures.
+
+### Phase 2 — Process supervisor
+
+* Implement secure Windows process execution.
+* Add hidden-window execution.
+* Add stdout/stderr streaming.
+* Add timeouts and cancellation.
+* Add process-tree cleanup.
+* Add safe argument handling.
+* Add tests before connecting real providers.
+
+### Phase 3 — Provider registry
+
+* Implement provider metadata.
+* Implement detection.
+* Implement version checks.
+* Implement capabilities.
+* Implement provider health checks.
+* Add the initial provider registry.
+* Add custom-provider validation.
+
+### Phase 4 — Codex deep integration
+
+* Implement Codex app-server startup.
+* Implement JSONL JSON-RPC transport.
+* Implement authentication.
+* Implement sessions.
+* Implement streaming events.
+* Implement approvals.
+* Implement file changes and diffs.
+* Implement Codex fallback through `codex exec --json`.
+* Preserve existing Codex functionality.
+
+### Phase 5 — ACP integration
+
+* Implement ACP v1 transport.
+* Add capability negotiation.
+* Add session lifecycle.
+* Add permission handling.
+* Add cancellation.
+* Add event normalization.
+* Connect Grok, OpenCode, Cline, Cursor, Qwen and other ACP-compatible providers where their official capabilities confirm compatibility.
+
+### Phase 6 — JSON/JSONL providers
+
+Implement and test adapters for:
+
+* Claude Code.
+* Gemini CLI.
+* GitHub Copilot CLI.
+* Kiro CLI.
+* Aider.
+* Any remaining provider that lacks ACP but exposes a reliable machine-readable interface.
+
+### Phase 7 — Setup wizard
+
+* Build prerequisite detection.
+* Build installation manager.
+* Build provider installation UI.
+* Build authentication UI.
+* Build diagnostics.
+* Build update/uninstall flows.
+* Add secure installation receipts.
+* Add safe rollback handling.
+
+### Phase 8 — Git and GitHub
+
+* Complete the local Git service.
+* Implement GitHub OAuth/device login.
+* Implement repository browsing.
+* Implement issues.
+* Implement pull requests.
+* Implement Actions monitoring.
+* Connect GitHub actions to the existing run/evidence model.
+* Keep all writes confirmation-gated.
+
+### Phase 9 — Unified desktop workflow
+
+* Add provider picker.
+* Add model picker.
+* Add active-session view.
+* Add streaming transcript.
+* Add permission dialogs.
+* Add diff review.
+* Add Git and GitHub actions.
+* Add evidence reports.
+* Add restart recovery.
+
+### Phase 10 — Packaging and validation
+
+* Build the Windows installer.
+* Test on a clean Windows machine or clean Windows user profile.
+* Verify no Node.js or npm installation is required after packaging.
+* Verify missing optional providers do not block startup.
+* Verify setup works without a terminal.
+* Run all tests.
+* Run security tests.
+* Generate checksums.
+* Update documentation.
+* Produce a final provider compatibility report.
+
+## Definition of done
+
+This work is complete only when:
+
+* The `.exe` launches without a terminal.
+* The daemon starts automatically.
+* The setup wizard detects missing prerequisites.
+* Providers can be installed from the GUI.
+* Providers can be authenticated from the GUI.
+* At least Codex, Claude Code, Gemini CLI, Grok Build, GitHub Copilot CLI and GitHub work end-to-end.
+* The architecture supports OpenCode, Qwen, Cline, Cursor, Kiro and Aider.
+* Git operations can be performed through the application.
+* GitHub repository, branch, commit and pull-request workflows work through the application.
+* No user is required to run `npm`, `codex login`, `gh auth login` or equivalent commands for normal setup.
+* Secrets are protected and redacted.
+* Approval gates remain active.
+* Worktree isolation remains active.
+* Dangerous operations require confirmation.
+* Missing or unsupported capabilities are shown honestly.
+* All tests pass.
+* The packaged application works on a clean Windows installation.
+* Documentation accurately describes the current state.
+* The final response contains:
+
+  * Files changed.
+  * Database migrations added.
+  * Providers implemented.
+  * Providers detected but not fully supported.
+  * Tests executed.
+  * Packaging result.
+  * Known limitations.
+  * Exact installer path.
+
+```
+
+The prompt is based on the current official integration patterns for [Codex app-server and non-interactive execution](https://learn.chatgpt.com/docs/app-server), [Claude Code headless mode](https://code.claude.com/docs/en/headless), [Gemini CLI headless mode](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/headless.md), [Grok Build headless/ACP mode](https://docs.x.ai/build/cli/headless-scripting), [GitHub Copilot CLI](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-programmatic-reference), [Cursor Agent](https://cursor.com/docs/cli/reference/parameters.md), [OpenCode](https://opencode.ai/docs/cli/), [Qwen Code](https://qwenlm.github.io/qwen-code-docs/en/users/features/headless/), [Cline](https://docs.cline.bot/cli/cli-reference), [Kiro CLI](https://kiro.dev/docs/cli/headless/) and [GitHub OAuth device authentication](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps).
+```
