@@ -12,6 +12,8 @@ import {
   type StepEvidence,
   StepRuntimeErrorSchema,
   type StepRuntimeError,
+  RuntimeCorrectionAttemptSchema,
+  type RuntimeCorrectionAttempt,
   StepTerminalOperationSchema,
   type StepTerminalOperation,
   type StepState
@@ -209,11 +211,27 @@ export class StepPlanService {
     this.database.saveStepEvidence(StepEvidenceSchema.parse(evidence));
   }
 
+  evidence(runId: string, stepId?: string): StepEvidence[] {
+    return this.database.stepEvidence(runId, stepId);
+  }
+
   saveTerminalOperation(operation: StepTerminalOperation): void {
     this.database.saveStepTerminalOperation(StepTerminalOperationSchema.parse(operation));
   }
 
   saveRuntimeError(error: StepRuntimeError): void {
     this.database.saveStepRuntimeError(StepRuntimeErrorSchema.parse(error));
+  }
+
+  runtimeErrors(runId: string, stepId?: string): StepRuntimeError[] {
+    return this.database.stepRuntimeErrors(runId, stepId);
+  }
+
+  saveRuntimeCorrection(attempt: RuntimeCorrectionAttempt): void {
+    this.database.saveRuntimeCorrection(RuntimeCorrectionAttemptSchema.parse(attempt));
+  }
+
+  runtimeCorrections(runId: string, stepId?: string): RuntimeCorrectionAttempt[] {
+    return this.database.runtimeCorrections(runId, stepId);
   }
 }

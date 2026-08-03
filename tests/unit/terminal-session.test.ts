@@ -30,6 +30,7 @@ describe("terminal sessions and runtime supervision", () => {
       )
       .run("terminal-run", "terminal-step", 1, "STEP_READY", "{}");
     const streamed: string[] = [];
+    const recordedErrors: number[] = [];
     const secret = "ghp_abcdefghijklmnopqrstuvwxyz";
     try {
       const session = await TerminalSession.start(
@@ -47,7 +48,15 @@ describe("terminal sessions and runtime supervision", () => {
             streamed.push(event.text);
           }
         },
-        { store: database }
+        {
+          store: database,
+          errorRecorder: {
+            recordTerminalOperation(operation) {
+              recordedErrors.push(operation.errorsDetected.length);
+              return operation.errorsDetected;
+            }
+          }
+        }
       );
 
       await session.waitForReadiness({ logPattern: "ready" });
@@ -59,6 +68,7 @@ describe("terminal sessions and runtime supervision", () => {
       expect(completed.readyAt).not.toBeNull();
       expect(completed.warningsDetected).toHaveLength(1);
       expect(completed.errorsDetected).toHaveLength(1);
+      expect(recordedErrors).toEqual([1]);
       expect(completed.normalizedLog?.combined).toContain("ready");
       expect(completed.normalizedLog?.combined).not.toContain(secret);
       expect(streamedText).not.toContain(secret);

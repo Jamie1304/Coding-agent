@@ -15,6 +15,8 @@ import {
   type StepEvidence,
   StepRuntimeErrorSchema,
   type StepRuntimeError,
+  RuntimeCorrectionAttemptSchema,
+  type RuntimeCorrectionAttempt,
   StepTerminalOperationSchema,
   type StepTerminalOperation,
   type TimelineEvent
@@ -174,7 +176,14 @@ const migrations = [
            ELSE state
          END
        )
-   WHERE state IN ('PENDING', 'READY', 'IN_PROGRESS', 'CORRECTION_REQUIRED', 'COMPLETE', 'BLOCKED');`
+   WHERE state IN ('PENDING', 'READY', 'IN_PROGRESS', 'CORRECTION_REQUIRED', 'COMPLETE', 'BLOCKED');`,
+  `CREATE TABLE IF NOT EXISTS step_runtime_corrections(
+     id TEXT PRIMARY KEY, run_id TEXT NOT NULL, step_id TEXT NOT NULL, error_signature TEXT NOT NULL,
+     attempt INTEGER NOT NULL, completed_at TEXT, payload_json TEXT NOT NULL,
+     FOREIGN KEY(run_id, step_id) REFERENCES approved_plan_steps(run_id, step_id)
+   );
+   CREATE INDEX IF NOT EXISTS step_runtime_corrections_by_error
+     ON step_runtime_corrections(run_id, step_id, error_signature, attempt);`
 ];
 
 export class AgentDatabase {
@@ -763,6 +772,42 @@ export class AgentDatabase {
           )
           .all(runId) as Array<{ payload_json: string }>);
     return rows.map((row) => StepRuntimeErrorSchema.parse(JSON.parse(row.payload_json)));
+  }
+
+  saveRuntimeCorrection(attempt: RuntimeCorrectionAttempt): void {
+    const parsed = RuntimeCorrectionAttemptSchema.parse(attempt);
+    this.raw
+      .prepare(
+        `INSERT INTO step_runtime_corrections(
+          id,run_id,step_id,error_signature,attempt,completed_at,payload_json
+        ) VALUES(@id,@runId,@stepId,@errorSignature,@attempt,@completedAt,@payloadJson)
+        ON CONFLICT(id) DO UPDATE SET completed_at=excluded.completed_at,payload_json=excluded.payload_json`
+      )
+      .run({
+        id: parsed.id,
+        runId: parsed.runId,
+        stepId: parsed.stepId,
+        errorSignature: parsed.errorSignature,
+        attempt: parsed.attempt,
+        completedAt: parsed.completedAt,
+        payloadJson: JSON.stringify(parsed)
+      });
+  }
+
+  runtimeCorrections(runId: string, stepId?: string): RuntimeCorrectionAttempt[] {
+    const rows = stepId
+      ? (this.raw
+          .prepare(
+            `SELECT payload_json FROM step_runtime_corrections
+             WHERE run_id=? AND step_id=? ORDER BY error_signature,attempt`
+          )
+          .all(runId, stepId) as Array<{ payload_json: string }>)
+      : (this.raw
+          .prepare(
+            "SELECT payload_json FROM step_runtime_corrections WHERE run_id=? ORDER BY step_id,error_signature,attempt"
+          )
+          .all(runId) as Array<{ payload_json: string }>);
+    return rows.map((row) => RuntimeCorrectionAttemptSchema.parse(JSON.parse(row.payload_json)));
   }
 
   private savePolicy(

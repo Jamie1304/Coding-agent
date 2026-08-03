@@ -444,6 +444,21 @@ export const StepRuntimeErrorSchema = z.object({
 });
 export type StepRuntimeError = z.infer<typeof StepRuntimeErrorSchema>;
 
+export const RuntimeCorrectionAttemptSchema = z.object({
+  id: z.string().min(1),
+  runId: z.string().min(1),
+  stepId: z.string().min(1),
+  errorSignature: z.string().min(1).max(1_000),
+  attempt: z.number().int().positive(),
+  hypothesis: z.string().min(1).max(20_000),
+  outcome: z.enum(["improved", "no_change", "failed", "resolved"]),
+  notes: z.string().min(1).max(20_000),
+  regressionEvidenceId: z.string().min(1).nullable(),
+  startedAt: z.iso.datetime(),
+  completedAt: z.iso.datetime().nullable()
+});
+export type RuntimeCorrectionAttempt = z.infer<typeof RuntimeCorrectionAttemptSchema>;
+
 export const StepRuntimeWarningSchema = z.object({
   signature: z.string().min(1).max(1_000),
   category: RuntimeErrorCategorySchema,

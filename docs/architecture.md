@@ -65,6 +65,12 @@ then callers must provide both the expected and target per-step state to advance
 writes can update evidence but cannot change a step state, preventing an untrusted caller from
 unlocking a later step outside the gate engine.
 
+`TerminalSession` writes bounded, redacted runtime diagnostics; a `RuntimeCorrectionController` can
+receive its completed operation, persist normalized errors and attempts, and pause the active step at
+runtime-error analysis. Corrections are bounded. A repeated non-improving error becomes an explicit
+independent-diagnosis blocker, while a resolved error must reference persisted focused regression
+evidence before the gate can return to automated-test creation.
+
 Run reports retain their existing flat artifacts and add a non-destructive per-step layout under
 `.agent-runs/<run-id>/steps/<order>-<step-id>`. The frozen plan is recorded as both
 `approved-step-plan.json` and a human-readable `approved-step-plan.md`. Initialization never

@@ -178,6 +178,19 @@ describe("Phase 2 to Phase 3 database migration", () => {
       status: "resolved",
       resolution: "Verified by migration test."
     });
+    service.saveRuntimeCorrection({
+      id: "correction-1",
+      runId: "legacy-run",
+      stepId: "schema",
+      errorSignature: "none",
+      attempt: 1,
+      hypothesis: "Verify that correction history persists with the migrated run.",
+      outcome: "resolved",
+      notes: "No retry was required after the migration fixture check.",
+      regressionEvidenceId: "evidence-1",
+      startedAt: timestamp,
+      completedAt: timestamp
+    });
     await access(
       join(directory, ".agent-runs", "legacy-run", "steps", "001-schema", "completion-gate.json")
     );
@@ -227,12 +240,13 @@ describe("Phase 2 to Phase 3 database migration", () => {
     expect(reopened.stepAmendments("legacy-run")).toHaveLength(1);
     expect(reopened.stepTerminalOperations("legacy-run")).toHaveLength(1);
     expect(reopened.stepRuntimeErrors("legacy-run")).toHaveLength(1);
+    expect(reopened.runtimeCorrections("legacy-run", "schema")).toHaveLength(1);
     const recovered = reopenedGates.recover("legacy-run");
     expect(recovered.activeStep?.id).toBe("schema");
     expect(recovered.gates[0]?.state).toBe("STEP_CONTEXT_ANALYSIS");
     expect(
       reopened.raw.prepare("SELECT version FROM schema_migrations ORDER BY version").all()
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
     reopened.close();
   });
 });

@@ -46,8 +46,13 @@ export interface TerminalSessionRequest extends CommandRequest {
 
 export interface TerminalSessionOptions {
   store?: TerminalOperationStore;
+  errorRecorder?: RuntimeErrorRecorder;
   killGraceMs?: number;
   now?: () => Date;
+}
+
+export interface RuntimeErrorRecorder {
+  recordTerminalOperation(operation: StepTerminalOperation): StepRuntimeError[];
 }
 
 export class TerminalSession {
@@ -75,6 +80,7 @@ export class TerminalSession {
     process: ChildProcessWithoutNullStreams,
     private readonly options: {
       store: TerminalOperationStore | undefined;
+      errorRecorder: RuntimeErrorRecorder | undefined;
       killGraceMs: number;
       now: () => Date;
     }
@@ -164,6 +170,7 @@ export class TerminalSession {
     }
     return new TerminalSession(normalizedRequest, child, {
       store: options.store,
+      errorRecorder: options.errorRecorder,
       killGraceMs: options.killGraceMs ?? DEFAULT_KILL_GRACE_MS,
       now: options.now ?? (() => new Date())
     });
@@ -326,6 +333,7 @@ export class TerminalSession {
       warningsDetected: [...this.warnings.values()]
     };
     this.persist();
+    this.options.errorRecorder?.recordTerminalOperation(this.snapshot());
     this.completionResolver(this.snapshot());
   }
 

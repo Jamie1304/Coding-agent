@@ -17,5 +17,6 @@ export * from "./step-gate.js";
 export * from "./step-plan.js";
 export * from "./terminal-session.js";
 export * from "./runtime-supervisor.js";
+export * from "./runtime-correction.js";
 export * from "./workspace.js";
 export * from "./verification.js";
