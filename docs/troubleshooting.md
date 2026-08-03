@@ -1,110 +1,25 @@
 # Troubleshooting
 
-## Daemon offline
+## Runtime will not start
 
-Run `npm run doctor`, then `npm run dev:daemon`. Inspect
-`%LOCALAPPDATA%\PersonalCodexAgent\daemon.json`. Do not edit its token. Ensure no security product is
-blocking loopback traffic.
+The startup screen names the failure and offers **Retry runtime**, **Start safe mode**, **Open logs**, **Export diagnostics**, and **Exit**. Safe mode starts the bundled daemon without the Codex provider, allowing Setup, repair, and diagnostic collection to remain available.
 
-## Codex unavailable or unauthenticated
+Do not manually start a daemon, reuse an old `daemon.json`, or copy its token. The installed app owns connection metadata for its session and removes only metadata it created.
 
-```powershell
-npm install -g @openai/codex
-codex --version
-codex login
-codex login status
-```
+## Application Control or SmartScreen
 
-Set `CODEX_EXECUTABLE` to an absolute executable path if it is not on `PATH`.
+An unsigned build may be blocked by Windows SmartScreen or enterprise Application Control. Verify the published SHA-256 and ask the administrator to allow the exact release artifact. Do not disable Code Integrity, bypass policy, or rely on `Unblock-File` to override an enterprise rule. A signing certificate and release-signing secrets are required before an official signed release can be claimed.
 
-## GitHub stages skipped
+## Optional integration unavailable
 
-Install `gh` with `winget install --id GitHub.cli -e`, run `gh auth login`, verify `origin`, and set
-`github.enabled: true`. Protected branches and missing permissions are reported as blockers.
+Use **Setup & Connections** to refresh component state. Git is needed for repository lifecycle operations; Codex is needed only for Codex-backed execution; VS Code, GitHub CLI, and Ollama are optional. The app can run local prompt review and offline configuration without any of them.
 
-## Workspace not detected
+Authentication is user-controlled. Complete it using the integration's own UI, then refresh setup state. Never paste credentials into diagnostic export or support tickets.
 
-Reload VS Code after installing the VSIX, open a folder, confirm Workspace Trust, and use
-**Personal Codex Agent: Set Active Project** for multi-root workspaces. The desktop folder picker is
-the safe fallback.
+## Repair and local data
 
-## Git/worktree failures
+**Repair runtime** rechecks fixed integrations and restarts only the app-owned daemon. It does not delete run history, credentials, or project evidence. Back up `%LOCALAPPDATA%\\PersonalCodexAgent` before choosing data removal during uninstall or a deliberate reset.
 
-Commit or intentionally preserve source changes, remove stale worktrees with `git worktree list` and
-`git worktree prune`, and ensure the sibling directory is writable. Branch collisions are blocked
-instead of overwritten.
+## Developer diagnostics
 
-## SQLite installation
-
-SQLite uses the built-in `node:sqlite` module and requires Node 22.5 or newer. No native compiler is
-needed. Delete only `node_modules` in this repository, then run `npm ci`; do not delete local
-application data unless you intend to reset history.
-
-## Packaging and Windows warning
-
-The development package is unsigned. SmartScreen may warn; verify `artifacts\SHA256SUMS.txt`.
-Production signing requires an organization-controlled code-signing certificate and an
-`electron-builder` signing configuration.
-
-## Electron does not start
-
-Run:
-
-```powershell
-npm run doctor
-npm run electron:install
-npm run package
-```
-
-Doctor validates `node_modules\electron\path.txt`, the raw executable, its version, and the packaged
-application fallback. It also reports whether `ELECTRON_RUN_AS_NODE` or an override was inherited.
-If Windows Application Control or antivirus blocks the exact raw executable, do not disable the
-policy. Ask the administrator to allow the reported file, or use the packaged application fallback
-created by `npm run package` when that executable is permitted. If doctor reports that both files
-are blocked, the administrator must allow either reported executable under the active Code
-Integrity policy; `Unblock-File` cannot override enterprise signing requirements. `Zone.Identifier`
-is reported separately from enterprise execution policy.
-
-## Port occupied or stale development process
-
-The supervisor lets Vite choose an available loopback port and passes the actual URL to Electron.
-Press `Ctrl+C` to close the complete owned process tree. If a prior terminal was forcibly closed,
-run `npm run dev` again: a dead PID lock is removed automatically. A live lock reports the owning PID
-instead of silently starting a competing instance.
-
-For a supervised validation runtime, use its recorded terminal-operation evidence rather than a raw
-terminal capture. It records redacted output, exit status, readiness, and shutdown details. If its
-configured port remains held after graceful shutdown, the supervisor attempts a forced owned-tree
-cleanup and reports the unreleased port as a failure; do not kill an unowned process merely because it
-uses the same port.
-
-## Repeated runtime error
-
-Do not advance a step past a detected runtime error. Record a hypothesis and bounded correction
-attempt through the runtime-correction controller, then attach focused regression evidence before
-returning to automated test creation. When the retry limit is reached without improvement, the step
-is blocked for independent diagnosis instead of retrying indefinitely.
-
-## CLI installed but doctor cannot find it
-
-Run `npm run doctor -- --json` and inspect `resolvedPath` and `discoveredBy`. On Windows, the resolver
-checks `.exe`, `.cmd`, and `.bat` through `PATHEXT`, `where.exe`, npm's global directory, the Node
-directory, and safe known application locations. Restart the terminal after editing `PATH`.
-
-## Logs and extension confirmation
-
-Daemon connection state is in `%LOCALAPPDATA%\PersonalCodexAgent\daemon.json`. The Setup &
-Connections page can retest individual environment states without restarting. Confirm the extension
-with `code --list-extensions | Select-String personal-codex-agent`, then use **Developer: Reload
-Window** in VS Code.
-
-## Reset or uninstall
-
-First back up reports. Stop the daemon, then remove
-`%LOCALAPPDATA%\PersonalCodexAgent` to reset local state. Uninstall the extension with:
-
-```powershell
-code --uninstall-extension personal-codex-agent.personal-codex-agent-vscode
-```
-
-Repository `.agent-runs` directories are separate and are not removed automatically.
+For a repository checkout, run `npm run doctor` and `npm run validate`. Development mode may report Node/npm requirements because they are build tools, not installed-app prerequisites. If Electron starts as Node, remove inherited `ELECTRON_RUN_AS_NODE` before launching the desktop executable.

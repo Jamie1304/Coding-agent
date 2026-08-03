@@ -2,7 +2,7 @@
   "name": "personal-codex-agent-vscode",
   "displayName": "Personal Codex Agent",
   "description": "Local workspace bridge for Personal Codex Agent.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "personal-codex-agent",
   "license": "MIT",
   "engines": {
