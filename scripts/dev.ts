@@ -1,4 +1,8 @@
+import { config } from "dotenv";
+import { join } from "node:path";
 import { runDevelopment } from "./dev-supervisor.js";
+
+config({ path: join(process.cwd(), ".env"), override: false });
 
 try {
   const result = await runDevelopment();

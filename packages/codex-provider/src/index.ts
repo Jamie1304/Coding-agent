@@ -7,6 +7,11 @@ import {
   runCommandResolution,
   type CommandResolution
 } from "@agent/shared";
+import {
+  PuterCodexProvider,
+  type PuterCodexProviderOptions,
+  type PuterTokenStore
+} from "./puter.js";
 
 export interface CodexAvailability {
   available: boolean;
@@ -358,4 +363,23 @@ function normalizeEvent(message: RpcMessage, activeTurnId: string): CodexEvent |
   }
   if (message.error) return { type: "error", message: message.error.message };
   return null;
+}
+
+export { PuterCodexProvider } from "./puter.js";
+export type { PuterCodexProviderOptions, PuterTokenStore } from "./puter.js";
+
+export function createCodexProviderFromEnvironment(): CodexProvider {
+  switch ((process.env.AGENT_CODEX_PROVIDER ?? "app-server").trim().toLocaleLowerCase()) {
+    case "puter":
+      return new PuterCodexProvider();
+    case "fake":
+      return new FakeCodexProvider();
+    case "app-server":
+    case "codex":
+      return new AppServerCodexProvider();
+    default:
+      throw new Error(
+        `Unsupported AGENT_CODEX_PROVIDER: ${String(process.env.AGENT_CODEX_PROVIDER)}`
+      );
+  }
 }

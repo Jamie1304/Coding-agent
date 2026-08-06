@@ -3,7 +3,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer as createTcpServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
-import { AppServerCodexProvider } from "@agent/codex-provider";
+import { createCodexProviderFromEnvironment } from "@agent/codex-provider";
 import { createDaemon, type DaemonHandle } from "../apps/daemon/src/server.js";
 import {
   diagnoseElectron,
@@ -85,7 +85,7 @@ export async function runDevelopment(options: DevelopmentOptions = {}): Promise<
     daemon = await createDaemon({
       port: 0,
       dataDirectory,
-      codexProvider: new AppServerCodexProvider()
+      codexProvider: createCodexProviderFromEnvironment()
     });
     daemonUrl = daemon.url;
     await writeFile(
