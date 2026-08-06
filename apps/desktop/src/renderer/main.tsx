@@ -1354,7 +1354,9 @@ function RoutingPage({
       setProfile(config.profile);
       if (config.strategy) {
         setStrategyId(config.strategy.id);
-        setStrategyCost(config.strategy.maximumCost === null ? "" : config.strategy.maximumCost.toString());
+        setStrategyCost(
+          config.strategy.maximumCost === null ? "" : config.strategy.maximumCost.toString()
+        );
         setStrategyLocalOnly(config.strategy.localOnly);
         setStrategyDescription(config.strategy.description);
       }

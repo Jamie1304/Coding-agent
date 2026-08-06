@@ -786,9 +786,10 @@ async function nearestExistingAncestor(path: string): Promise<string> {
     } catch (error) {
       if (!isMissing(error)) throw error;
       const parent = dirname(current);
-      if (parent === current) throw new Error(`No existing ancestor for ${path}`, {
-        cause: error
-      });
+      if (parent === current)
+        throw new Error(`No existing ancestor for ${path}`, {
+          cause: error
+        });
       current = parent;
     }
   }

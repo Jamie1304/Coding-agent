@@ -82,8 +82,7 @@ export class ModelRouter {
         ? Infinity
         : context.budget.dailyLimit - context.spentToday;
     const strategy = context.config.strategy;
-    const effectiveLocalOnly =
-      context.config.localOnly || (strategy?.localOnly ?? false);
+    const effectiveLocalOnly = context.config.localOnly || (strategy?.localOnly ?? false);
     const strategyMaximumCost = strategy?.maximumCost ?? Infinity;
     const preferredModelForRole = new Map<string, string>([
       [strategy?.plannerRole ?? "planning", strategy?.plannerModel ?? ""],
@@ -106,7 +105,10 @@ export class ModelRouter {
         rejected.push("context_window");
       if (task.repositoryWrite && task.role !== "coding")
         rejected.push("repository_tooling_required");
-      if ((effectiveLocalOnly || (task.sensitive && context.config.profile === "maximum_privacy")) && !model.local)
+      if (
+        (effectiveLocalOnly || (task.sensitive && context.config.profile === "maximum_privacy")) &&
+        !model.local
+      )
         rejected.push("privacy_local_only");
       if (!model.local && context.config.cloudRequiresApproval && !context.cloudApproved)
         rejected.push("cloud_approval_required");

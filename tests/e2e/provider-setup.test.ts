@@ -1,3 +1,4 @@
+import { AgentDatabase } from "@agent/database";
 import { createDaemon } from "../../apps/daemon/src/server.js";
 import { MemorySecretStore, type ProviderConfiguration, type ProviderType } from "@agent/ai";
 
@@ -46,7 +47,11 @@ describe("in-app provider setup API", () => {
         return Response.json({ data: [{ id: "model-test" }] });
       })
     );
-    const daemon = await createDaemon({ token, secretStore: new MemorySecretStore() });
+    const daemon = await createDaemon({
+      token,
+      database: new AgentDatabase(),
+      secretStore: new MemorySecretStore()
+    });
     daemonUrl = daemon.url;
     try {
       for (const type of [

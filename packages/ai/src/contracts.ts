@@ -261,24 +261,22 @@ export const StrategyRoutingSchema = z.object({
     .default(
       "Use specialized models for different responsibilities while keeping the workflow controller authoritative."
     ),
-  roleAssignments: z
-    .record(z.string(), z.string())
-    .default({
-      task_classification: "planning",
-      master_planning: "planning",
-      repository_inventory: "repository_analysis",
-      documentation_research: "documentation",
-      normal_coding: "coding",
-      hard_debugging: "debugging",
-      large_mechanical_changes: "coding",
-      test_generation: "coding",
-      test_log_classification: "verification",
-      independent_code_review: "code_review",
-      ui_and_screenshot_analysis: "vision",
-      security_review: "security_review",
-      final_release_decision: "verification",
-      offline_private_processing: "local_trivial"
-    }),
+  roleAssignments: z.record(z.string(), z.string()).default({
+    task_classification: "planning",
+    master_planning: "planning",
+    repository_inventory: "repository_analysis",
+    documentation_research: "documentation",
+    normal_coding: "coding",
+    hard_debugging: "debugging",
+    large_mechanical_changes: "coding",
+    test_generation: "coding",
+    test_log_classification: "verification",
+    independent_code_review: "code_review",
+    ui_and_screenshot_analysis: "vision",
+    security_review: "security_review",
+    final_release_decision: "verification",
+    offline_private_processing: "local_trivial"
+  }),
   plannerRole: z.string().default("planning"),
   plannerModel: z.string().default("GPT-5.6 Sol"),
   primaryWorkerRole: z.string().default("coding"),
@@ -294,10 +292,7 @@ export const StrategyRoutingSchema = z.object({
   fallbackModels: z.array(z.string()).default([]),
   escalationRules: z
     .array(z.string())
-    .default([
-      "hard_debugging_after_retries",
-      "critical_disagreement_requires_sol"
-    ]),
+    .default(["hard_debugging_after_retries", "critical_disagreement_requires_sol"]),
   maximumAttempts: z.number().int().nonnegative().default(3),
   maximumCost: z.number().nonnegative().nullable().default(null),
   requiresUserApprovalForEscalation: z.boolean().default(true),

@@ -1,6 +1,6 @@
 ---
-agent: 'agent'
-description: 'Audit and safely repair the Personal Codex Agent repository with evidence, regression tests, and focused commits'
+agent: "agent"
+description: "Audit and safely repair the Personal Codex Agent repository with evidence, regression tests, and focused commits"
 ---
 
 # Personal Codex Agent — Repository Audit and Repair
