@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export * from "./command-resolver.js";
+export * from "./strategy-schemas.js";
 
 export const runStates = [
   "IDLE",
