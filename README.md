@@ -43,6 +43,7 @@ The release is unsigned until an organization-controlled Windows code-signing ce
 - [Architecture](docs/architecture.md)
 - [Security model](docs/security-model.md)
 - [Developer guide](docs/developer-guide.md)
+- [Puter integration](docs/puter-integration.md)
 - [Testing strategy](docs/testing-strategy.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Desktop production plan](docs/desktop-production-plan.md)

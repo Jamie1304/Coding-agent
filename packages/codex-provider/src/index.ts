@@ -7,11 +7,7 @@ import {
   runCommandResolution,
   type CommandResolution
 } from "@agent/shared";
-import {
-  PuterCodexProvider,
-  type PuterCodexProviderOptions,
-  type PuterTokenStore
-} from "./puter.js";
+import { PuterCodexProvider } from "./puter.js";
 
 export interface CodexAvailability {
   available: boolean;
@@ -366,7 +362,7 @@ function normalizeEvent(message: RpcMessage, activeTurnId: string): CodexEvent |
 }
 
 export { PuterCodexProvider } from "./puter.js";
-export type { PuterCodexProviderOptions, PuterTokenStore } from "./puter.js";
+export type { PuterCodexProviderOptions, PuterTokenStore, PuterSdk } from "./puter.js";
 
 export function createCodexProviderFromEnvironment(): CodexProvider {
   switch ((process.env.AGENT_CODEX_PROVIDER ?? "app-server").trim().toLocaleLowerCase()) {

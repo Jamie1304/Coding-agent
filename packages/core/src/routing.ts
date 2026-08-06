@@ -170,7 +170,7 @@ export class ModelRouter {
         score += 2;
         reasons.push("strategy_preferred_model");
       }
-      if (strategy?.fallbackModels?.includes(model.modelId)) {
+      if (strategy?.fallbackModels.includes(model.modelId)) {
         score += 0.5;
         reasons.push("strategy_fallback_candidate");
       }

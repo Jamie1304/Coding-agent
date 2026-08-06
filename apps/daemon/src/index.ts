@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { config } from "dotenv";
 import { createDaemon } from "./server.js";
-import { createCodexProviderFromEnvironment, type CodexProvider } from "@agent/codex-provider";
+import { createCodexProviderFromEnvironment } from "@agent/codex-provider";
 
 config({ path: join(process.cwd(), ".env"), override: false });
 

@@ -4,5 +4,6 @@ artifacts
 coverage
 .agent/
 .agent-runs/
+.puter-bundle/
 package-lock.json
 *.vsix

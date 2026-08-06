@@ -4,6 +4,7 @@ artifacts/
 coverage/
 .agent-data/
 .agent-runs/
+.puter-bundle/
 *.log
 *.sqlite*
 .env

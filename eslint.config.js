@@ -8,6 +8,7 @@ export default tseslint.config(
       "dist/**",
       "artifacts/**",
       "coverage/**",
+      ".puter-bundle/**",
       "**/*.cjs",
       "eslint.config.js"
     ]

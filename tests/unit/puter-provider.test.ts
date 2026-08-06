@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { PuterCodexProvider, type CodexEvent } from "@agent/codex-provider";
+import { PuterCodexProvider, type CodexEvent, type PuterSdk } from "@agent/codex-provider";
 
 describe("PuterCodexProvider", () => {
   const workspaces: string[] = [];
@@ -183,8 +183,8 @@ describe("PuterCodexProvider", () => {
 function createProvider(chat: ReturnType<typeof vi.fn>): PuterCodexProvider {
   return new PuterCodexProvider({
     authToken: "test-token",
-    sdkLoader: async () =>
-      ({
+    sdkLoader: async (): Promise<PuterSdk> => {
+      return {
         init: (_token: string) => ({
           ai: {
             chat: chat as unknown as (
@@ -194,7 +194,8 @@ function createProvider(chat: ReturnType<typeof vi.fn>): PuterCodexProvider {
           },
           auth: { getUser: async () => ({ username: "tester" }) }
         })
-      }) as unknown as any,
+      } as unknown as PuterSdk;
+    },
     tokenStore: {
       get: async () => null,
       set: async () => undefined

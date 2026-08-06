@@ -60,7 +60,7 @@ interface PuterClient {
   };
 }
 
-interface PuterSdk {
+export interface PuterSdk {
   init(token: string): PuterClient;
   getAuthToken?: () => Promise<string>;
 }
@@ -577,7 +577,8 @@ async function loadPuterSdk(): Promise<PuterSdk> {
     return (await import("@heyputer/puter.js/src/init.cjs")) as PuterSdk;
   } catch (error) {
     throw new Error(
-      `Puter.js is not installed. Run npm install before using AGENT_CODEX_PROVIDER=puter. ${errorMessage(error)}`
+      `Puter.js is not installed. Run npm install before using AGENT_CODEX_PROVIDER=puter. ${errorMessage(error)}`,
+      { cause: error }
     );
   }
 }
@@ -785,7 +786,9 @@ async function nearestExistingAncestor(path: string): Promise<string> {
     } catch (error) {
       if (!isMissing(error)) throw error;
       const parent = dirname(current);
-      if (parent === current) throw new Error(`No existing ancestor for ${path}`);
+      if (parent === current) throw new Error(`No existing ancestor for ${path}`, {
+        cause: error
+      });
       current = parent;
     }
   }
