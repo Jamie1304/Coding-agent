@@ -1,0 +1,12 @@
+754334909cb3511d7d205ca746630a74ae9081cf6f6f53dacc3cbe57c361502b  ./README.md
+75dae12c1e44f0e0517e7613fd8a40a6cb529126d84fd9317c93f6fd1b691b33  ./VALIDATION.md
+73ed1ec08930538ac385e5742c6bf1749e8863fcb93f2c49c6c3c5b7b5998603  ./apply-puter.ps1
+3d631b5ffb0fda43fcf3c108a99749fabd427adca9c919a1e8863d48e66f8391  ./apply-puter.sh
+330ddce5af1ac08c63e8be028ddd18e3b2d00cc7e3e9fd2f3f2fd81c6e403f44  ./files/.env.example
+deec353bf6432bf4c276aa176b884bf5038d9d521250b2e67146e1057432f00b  ./files/apps/daemon/src/index.ts
+0b09ebe2cbd3fc32b9b2d35726b2a88d12199ee286cff999546e9950dbd7eee7  ./files/docs/puter-integration.md
+f170a6646a1d8bce6db3f54eb19f7965db483e9d663459e7f08ac0929628543c  ./files/package.json
+29ea91e5ef2a87c4b3cb822ad199e12e4511736236e1571eddd7cba933cedb71  ./files/packages/codex-provider/src/index.ts.append.txt
+7993fccd4c2393e3fe2ce2755a3a091b4892e20a5c2c1d61c51a14715b6b8621  ./files/packages/codex-provider/src/puter.ts
+665966b1ca153a21fbe1b46ebee41443b38d3d16aa1b1538d521ea95e3b243a0  ./files/tests/unit/puter-provider.test.ts
+4c209bd6e82d652ace6a8040118c790d330c810aebe16a7e54398bac58817ab4  ./puter-agent.patch
