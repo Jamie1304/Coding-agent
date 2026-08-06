@@ -1,6 +1,7 @@
 export * from "./change-analyzer.js";
 export * from "./deployment.js";
 export * from "./budgets.js";
+export * from "./budget-accountant.js";
 export * from "./git.js";
 export * from "./github.js";
 export * from "./ide-bridge.js";
