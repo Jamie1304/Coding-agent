@@ -1,11 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
-import type { AgentRun, PromptRevision, Question, TimelineEvent } from "@agent/shared";
+import type { AgentRun, PromptRevision, Question, TimelineEvent, RoutingStrategy, RoutingDecision, StrategySimulation } from "@agent/shared";
 import type {
   BudgetConfig,
   DiscoveredModel,
   ProviderConfiguration,
-  RoutingConfig,
-  RoutingDecision
+  RoutingConfig
 } from "@agent/ai";
 
 const migrations = [
@@ -114,7 +113,70 @@ const migrations = [
     invalidates_approval INTEGER NOT NULL DEFAULT 0,
     new_questions_json TEXT, effects_json TEXT, created_at TEXT NOT NULL,
     FOREIGN KEY(run_id) REFERENCES runs(id)
-   );`
+   );`,
+  `CREATE TABLE IF NOT EXISTS strategies(
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+    version INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'draft',
+    scope TEXT NOT NULL DEFAULT 'global', project_path_reference TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, activated_at TEXT,
+    archived_at TEXT, created_by TEXT NOT NULL DEFAULT 'user',
+    based_on_strategy_id TEXT, generation_metadata_json TEXT,
+    objective_json TEXT NOT NULL, budgets_json TEXT NOT NULL,
+    context_policy_json TEXT NOT NULL, retry_policy_json TEXT NOT NULL,
+    parallel_policy_json TEXT NOT NULL, privacy_policy_json TEXT NOT NULL,
+    verification_policy_json TEXT NOT NULL, release_policy_json TEXT NOT NULL,
+    roles_json TEXT NOT NULL DEFAULT '{}',
+    escalation_rules_json TEXT NOT NULL DEFAULT '[]',
+    CHECK(status IN ('draft', 'active', 'archived')),
+    CHECK(scope IN ('global', 'project')),
+    CHECK(created_by IN ('user', 'ai', 'migration', 'system'))
+   );
+   CREATE TABLE IF NOT EXISTS strategy_versions(
+    strategy_id TEXT NOT NULL, version INTEGER NOT NULL, payload_json TEXT NOT NULL,
+    PRIMARY KEY(strategy_id, version), FOREIGN KEY(strategy_id) REFERENCES strategies(id)
+   );
+   CREATE TABLE IF NOT EXISTS strategy_activations(
+    id TEXT PRIMARY KEY, strategy_id TEXT NOT NULL, version INTEGER NOT NULL,
+    activated_at TEXT NOT NULL, activated_by TEXT NOT NULL DEFAULT 'user',
+    previous_strategy_id TEXT, previous_version INTEGER,
+    reason TEXT, FOREIGN KEY(strategy_id) REFERENCES strategies(id)
+   );
+   CREATE INDEX IF NOT EXISTS idx_strategy_status ON strategies(status);
+   CREATE INDEX IF NOT EXISTS idx_strategy_scope ON strategies(scope);
+   CREATE INDEX IF NOT EXISTS idx_strategy_created ON strategies(created_at DESC);
+   CREATE INDEX IF NOT EXISTS idx_strategy_activations_strategy ON strategy_activations(strategy_id);`,
+  `CREATE TABLE IF NOT EXISTS strategy_simulations(
+    id TEXT PRIMARY KEY, strategy_id TEXT NOT NULL, created_at TEXT NOT NULL,
+    task_samples_json TEXT NOT NULL, results_json TEXT NOT NULL,
+    average_estimated_cost REAL, total_estimated_cost REAL,
+    average_latency_ms INTEGER, warnings_json TEXT NOT NULL DEFAULT '[]',
+    FOREIGN KEY(strategy_id) REFERENCES strategies(id)
+   );
+   CREATE TABLE IF NOT EXISTS routing_decision_evidence(
+    id TEXT PRIMARY KEY, run_id TEXT NOT NULL, task_id TEXT NOT NULL,
+    strategy_id TEXT NOT NULL, strategy_version INTEGER NOT NULL,
+    decision_json TEXT NOT NULL, created_at TEXT NOT NULL,
+    FOREIGN KEY(strategy_id) REFERENCES strategies(id),
+    FOREIGN KEY(run_id) REFERENCES runs(id)
+   );
+   CREATE TABLE IF NOT EXISTS budget_ledger(
+    id TEXT PRIMARY KEY, strategy_id TEXT NOT NULL, run_id TEXT,
+    ledger_type TEXT NOT NULL, amount_usd REAL NOT NULL, reason TEXT,
+    provider_id TEXT, model_id TEXT, occurred_at TEXT NOT NULL,
+    FOREIGN KEY(strategy_id) REFERENCES strategies(id),
+    FOREIGN KEY(run_id) REFERENCES runs(id),
+    CHECK(ledger_type IN ('reserve', 'charge', 'refund', 'adjustment'))
+   );
+   CREATE TABLE IF NOT EXISTS cost_reservations(
+    id TEXT PRIMARY KEY, run_id TEXT NOT NULL, strategy_id TEXT NOT NULL,
+    amount_usd REAL NOT NULL, reason TEXT, reserved_at TEXT NOT NULL,
+    released_at TEXT, status TEXT NOT NULL DEFAULT 'active',
+    FOREIGN KEY(run_id) REFERENCES runs(id),
+    FOREIGN KEY(strategy_id) REFERENCES strategies(id),
+    CHECK(status IN ('active', 'released', 'consumed'))
+   );
+   CREATE INDEX IF NOT EXISTS idx_budget_ledger_strategy ON budget_ledger(strategy_id);
+   CREATE INDEX IF NOT EXISTS idx_cost_reservations_run ON cost_reservations(run_id);`
 ];
 
 export class AgentDatabase {
@@ -471,6 +533,325 @@ export class AgentDatabase {
     const row = this.raw.prepare(`SELECT payload_json FROM ${table} WHERE id=?`).get(id) as
       { payload_json: string } | undefined;
     return row ? (JSON.parse(row.payload_json) as unknown) : null;
+  }
+
+  // ============================================================================
+  // Strategy operations
+  // ============================================================================
+
+  saveStrategy(strategy: RoutingStrategy): void {
+    this.transaction(() => {
+      // Save the main strategy record
+      this.raw
+        .prepare(
+          `INSERT OR REPLACE INTO strategies(
+            id,name,description,version,status,scope,project_path_reference,
+            created_at,updated_at,activated_at,archived_at,created_by,
+            based_on_strategy_id,generation_metadata_json,
+            objective_json,budgets_json,context_policy_json,retry_policy_json,
+            parallel_policy_json,privacy_policy_json,verification_policy_json,
+            release_policy_json,roles_json,escalation_rules_json
+          ) VALUES(
+            ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+          )`
+        )
+        .run(
+          strategy.id,
+          strategy.name,
+          strategy.description,
+          strategy.version,
+          strategy.status,
+          strategy.scope,
+          strategy.projectPathReference,
+          strategy.createdAt,
+          strategy.updatedAt,
+          strategy.activatedAt,
+          strategy.archivedAt,
+          strategy.createdBy,
+          strategy.basedOnStrategyId,
+          strategy.generationMetadata ? JSON.stringify(strategy.generationMetadata) : null,
+          JSON.stringify(strategy.objective),
+          JSON.stringify(strategy.budgets),
+          JSON.stringify(strategy.contextPolicy),
+          JSON.stringify(strategy.retryPolicy),
+          JSON.stringify(strategy.parallelPolicy),
+          JSON.stringify(strategy.privacyPolicy),
+          JSON.stringify(strategy.verificationPolicy),
+          JSON.stringify(strategy.releasePolicy),
+          JSON.stringify(strategy.roles),
+          JSON.stringify(strategy.escalationRules)
+        );
+
+      // Save immutable version
+      this.raw
+        .prepare("INSERT OR REPLACE INTO strategy_versions VALUES(?,?,?)")
+        .run(strategy.id, strategy.version, JSON.stringify(strategy));
+    });
+  }
+
+  strategy(id: string): RoutingStrategy | null {
+    const row = this.raw.prepare("SELECT * FROM strategies WHERE id=?").get(id) as
+      Record<string, unknown> | undefined;
+    return row ? this.strategyFromRow(row) : null;
+  }
+
+  strategyVersion(id: string, version: number): RoutingStrategy | null {
+    const row = this.raw
+      .prepare("SELECT payload_json FROM strategy_versions WHERE strategy_id=? AND version=?")
+      .get(id, version) as { payload_json: string } | undefined;
+    return row ? (JSON.parse(row.payload_json) as RoutingStrategy) : null;
+  }
+
+  listStrategies(scope?: "global" | "project"): RoutingStrategy[] {
+    const query = scope
+      ? "SELECT * FROM strategies WHERE scope=? ORDER BY created_at DESC"
+      : "SELECT * FROM strategies ORDER BY created_at DESC";
+    const rows = scope
+      ? (this.raw.prepare(query).all(scope) as Array<Record<string, unknown>>)
+      : (this.raw.prepare(query).all() as Array<Record<string, unknown>>);
+    return rows.map((row) => this.strategyFromRow(row));
+  }
+
+  activeStrategy(scope: "global" | "project" = "global"): RoutingStrategy | null {
+    const row = this.raw
+      .prepare("SELECT * FROM strategies WHERE scope=? AND status='active' LIMIT 1")
+      .get(scope) as Record<string, unknown> | undefined;
+    return row ? this.strategyFromRow(row) : null;
+  }
+
+  activateStrategy(strategy: RoutingStrategy, previousStrategyId?: string, previousVersion?: number): void {
+    this.transaction(() => {
+      // Deactivate previous active strategy in same scope
+      this.raw
+        .prepare("UPDATE strategies SET status='draft' WHERE scope=? AND status='active'")
+        .run(strategy.scope);
+
+      // Activate new strategy
+      this.raw
+        .prepare("UPDATE strategies SET status='active', activated_at=? WHERE id=?")
+        .run(new Date().toISOString(), strategy.id);
+
+      // Record activation event
+      this.raw
+        .prepare(
+          "INSERT INTO strategy_activations(id,strategy_id,version,activated_at,previous_strategy_id,previous_version) VALUES(?,?,?,?,?,?)"
+        )
+        .run(
+          `${strategy.id}-${Date.now()}`,
+          strategy.id,
+          strategy.version,
+          new Date().toISOString(),
+          previousStrategyId ?? null,
+          previousVersion ?? null
+        );
+    });
+  }
+
+  archiveStrategy(id: string): void {
+    this.raw
+      .prepare("UPDATE strategies SET status='archived', archived_at=? WHERE id=?")
+      .run(new Date().toISOString(), id);
+  }
+
+  deleteStrategy(id: string): boolean {
+    let deleted = false;
+    this.transaction(() => {
+      // Delete dependent records first
+      this.raw.prepare("DELETE FROM strategy_activations WHERE strategy_id=?").run(id);
+      this.raw.prepare("DELETE FROM strategy_simulations WHERE strategy_id=?").run(id);
+      this.raw.prepare("DELETE FROM routing_decision_evidence WHERE strategy_id=?").run(id);
+      this.raw.prepare("DELETE FROM budget_ledger WHERE strategy_id=?").run(id);
+      this.raw.prepare("DELETE FROM cost_reservations WHERE strategy_id=?").run(id);
+      
+      // Delete strategy versions
+      this.raw.prepare("DELETE FROM strategy_versions WHERE strategy_id=?").run(id);
+      
+      // Delete the strategy itself
+      deleted = this.raw.prepare("DELETE FROM strategies WHERE id=?").run(id).changes > 0;
+    });
+    return deleted;
+  }
+
+  saveSimulation(simulation: StrategySimulation): void {
+    this.raw
+      .prepare(
+        `INSERT OR REPLACE INTO strategy_simulations(
+          id,strategy_id,created_at,task_samples_json,results_json,
+          average_estimated_cost,total_estimated_cost,average_latency_ms,warnings_json
+        ) VALUES(?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        simulation.id,
+        simulation.strategyId,
+        simulation.createdAt,
+        JSON.stringify(simulation.taskSamples),
+        JSON.stringify(simulation.results),
+        simulation.averageEstimatedCost ?? null,
+        simulation.totalEstimatedCost ?? null,
+        simulation.averageLatencyMs ?? null,
+        JSON.stringify(simulation.warnings)
+      );
+  }
+
+  simulation(id: string): StrategySimulation | null {
+    const row = this.raw
+      .prepare("SELECT * FROM strategy_simulations WHERE id=?")
+      .get(id) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return {
+      id: String(row.id),
+      strategyId: String(row.strategy_id),
+      createdAt: String(row.created_at),
+      taskSamples: JSON.parse(String(row.task_samples_json)),
+      results: JSON.parse(String(row.results_json)),
+      averageEstimatedCost: row.average_estimated_cost ? Number(row.average_estimated_cost) : null,
+      totalEstimatedCost: row.total_estimated_cost ? Number(row.total_estimated_cost) : null,
+      averageLatencyMs: row.average_latency_ms ? Number(row.average_latency_ms) : null,
+      warnings: JSON.parse(String(row.warnings_json))
+    };
+  }
+
+  saveRoutingDecisionEvidence(
+    runId: string,
+    taskId: string,
+    strategyId: string,
+    strategyVersion: number,
+    decision: RoutingDecision
+  ): void {
+    this.raw
+      .prepare(
+        `INSERT OR REPLACE INTO routing_decision_evidence(
+          id,run_id,task_id,strategy_id,strategy_version,decision_json,created_at
+        ) VALUES(?,?,?,?,?,?,?)`
+      )
+      .run(
+        `${runId}-${taskId}`,
+        runId,
+        taskId,
+        strategyId,
+        strategyVersion,
+        JSON.stringify(decision),
+        new Date().toISOString()
+      );
+  }
+
+  routingDecisionEvidence(runId: string, taskId: string): RoutingDecision | null {
+    const row = this.raw
+      .prepare("SELECT decision_json FROM routing_decision_evidence WHERE run_id=? AND task_id=?")
+      .get(runId, taskId) as { decision_json: string } | undefined;
+    return row ? (JSON.parse(row.decision_json) as RoutingDecision) : null;
+  }
+
+  recordBudgetLedgerEntry(input: {
+    strategyId: string;
+    runId?: string;
+    type: "reserve" | "charge" | "refund" | "adjustment";
+    amountUsd: number;
+    reason?: string;
+    providerId?: string;
+    modelId?: string;
+  }): void {
+    this.raw
+      .prepare(
+        `INSERT INTO budget_ledger(id,strategy_id,run_id,ledger_type,amount_usd,reason,provider_id,model_id,occurred_at)
+         VALUES(?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        `ledger-${Date.now()}-${Math.random()}`,
+        input.strategyId,
+        input.runId ?? null,
+        input.type,
+        input.amountUsd,
+        input.reason ?? null,
+        input.providerId ?? null,
+        input.modelId ?? null,
+        new Date().toISOString()
+      );
+  }
+
+  budgetLedger(strategyId: string): Array<{
+    id: string;
+    type: string;
+    amountUsd: number;
+    reason: string | null;
+    occurredAt: string;
+  }> {
+    return (
+      this.raw
+        .prepare("SELECT id, ledger_type, amount_usd, reason, occurred_at FROM budget_ledger WHERE strategy_id=? ORDER BY occurred_at DESC")
+        .all(strategyId) as Array<Record<string, unknown>>
+    ).map((row) => ({
+      id: String(row.id),
+      type: String(row.ledger_type),
+      amountUsd: Number(row.amount_usd),
+      reason: row.reason ? String(row.reason) : null,
+      occurredAt: String(row.occurred_at)
+    }));
+  }
+
+  reserveBudget(input: { runId: string; strategyId: string; amountUsd: number; reason?: string }): string {
+    const id = `reserve-${Date.now()}-${Math.random()}`;
+    this.raw
+      .prepare(
+        `INSERT INTO cost_reservations(id,run_id,strategy_id,amount_usd,reason,reserved_at,status)
+         VALUES(?,?,?,?,?,?,?)`
+      )
+      .run(id, input.runId, input.strategyId, input.amountUsd, input.reason ?? null, new Date().toISOString(), "active");
+    return id;
+  }
+
+  releaseBudgetReservation(reservationId: string): void {
+    this.raw
+      .prepare("UPDATE cost_reservations SET released_at=?, status='released' WHERE id=?")
+      .run(new Date().toISOString(), reservationId);
+  }
+
+  consumeBudgetReservation(reservationId: string): void {
+    this.raw
+      .prepare("UPDATE cost_reservations SET status='consumed' WHERE id=?")
+      .run(reservationId);
+  }
+
+  activeBudgetReservations(runId: string): Array<{ id: string; amountUsd: number }> {
+    return (
+      this.raw
+        .prepare("SELECT id, amount_usd FROM cost_reservations WHERE run_id=? AND status='active' ORDER BY reserved_at DESC")
+        .all(runId) as Array<Record<string, unknown>>
+    ).map((row) => ({
+      id: String(row.id),
+      amountUsd: Number(row.amount_usd)
+    }));
+  }
+
+  private strategyFromRow(row: Record<string, unknown>): RoutingStrategy {
+    return {
+      id: String(row.id),
+      name: String(row.name),
+      description: row.description ? String(row.description) : "",
+      version: Number(row.version),
+      status: String(row.status) as RoutingStrategy["status"],
+      scope: String(row.scope) as RoutingStrategy["scope"],
+      projectPathReference: row.project_path_reference ? String(row.project_path_reference) : null,
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+      activatedAt: row.activated_at ? String(row.activated_at) : null,
+      archivedAt: row.archived_at ? String(row.archived_at) : null,
+      createdBy: String(row.created_by) as RoutingStrategy["createdBy"],
+      basedOnStrategyId: row.based_on_strategy_id ? String(row.based_on_strategy_id) : null,
+      generationMetadata: row.generation_metadata_json
+        ? (JSON.parse(String(row.generation_metadata_json)) as RoutingStrategy["generationMetadata"])
+        : null,
+      objective: JSON.parse(String(row.objective_json)),
+      budgets: JSON.parse(String(row.budgets_json)),
+      contextPolicy: JSON.parse(String(row.context_policy_json)),
+      retryPolicy: JSON.parse(String(row.retry_policy_json)),
+      parallelPolicy: JSON.parse(String(row.parallel_policy_json)),
+      privacyPolicy: JSON.parse(String(row.privacy_policy_json)),
+      verificationPolicy: JSON.parse(String(row.verification_policy_json)),
+      releasePolicy: JSON.parse(String(row.release_policy_json)),
+      roles: JSON.parse(String(row.roles_json)),
+      escalationRules: JSON.parse(String(row.escalation_rules_json))
+    };
   }
 
   private transaction(operation: () => void): void {
