@@ -12,6 +12,7 @@ export * from "./provider-service.js";
 export * from "./quality.js";
 export * from "./reporting.js";
 export * from "./routing.js";
+export * from "./routing-engine.js";
 export * from "./run-service.js";
 export * from "./security.js";
 export * from "./state-machine.js";
