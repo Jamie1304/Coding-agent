@@ -173,10 +173,12 @@ const migrations = [
     released_at TEXT, status TEXT NOT NULL DEFAULT 'active',
     FOREIGN KEY(run_id) REFERENCES runs(id),
     FOREIGN KEY(strategy_id) REFERENCES strategies(id),
-    CHECK(status IN ('active', 'released', 'consumed'))
+   CHECK(status IN ('active', 'released', 'consumed'))
    );
    CREATE INDEX IF NOT EXISTS idx_budget_ledger_strategy ON budget_ledger(strategy_id);
-   CREATE INDEX IF NOT EXISTS idx_cost_reservations_run ON cost_reservations(run_id);`
+   CREATE INDEX IF NOT EXISTS idx_cost_reservations_run ON cost_reservations(run_id);`,
+  `ALTER TABLE provider_models ADD COLUMN supports_repository_write INTEGER NOT NULL DEFAULT 0;
+   CREATE INDEX IF NOT EXISTS idx_provider_models_repo_write ON provider_models(supports_repository_write);`
 ];
 
 export class AgentDatabase {
@@ -373,8 +375,35 @@ export class AgentDatabase {
 
   saveModel(model: DiscoveredModel): void {
     this.raw
-      .prepare("INSERT OR REPLACE INTO provider_models VALUES(?,?,?)")
-      .run(model.providerId, model.modelId, JSON.stringify(model));
+      .prepare("INSERT OR REPLACE INTO provider_models VALUES(?,?,?,?)")
+      .run(
+        model.providerId,
+        model.modelId,
+        JSON.stringify(model),
+        model.supportsRepositoryWrite ? 1 : 0
+      );
+  }
+
+  modelSupportsRepositoryWrite(providerId: string, modelId: string): boolean {
+    const result = this.raw
+      .prepare("SELECT supports_repository_write FROM provider_models WHERE provider_id=? AND model_id=?")
+      .get(providerId, modelId) as { supports_repository_write: number } | undefined;
+    return result ? result.supports_repository_write === 1 : false;
+  }
+
+  modelsWithRepositoryWriteSupport(providerId?: string): Array<{ providerId: string; modelId: string }> {
+    const query = providerId
+      ? "SELECT provider_id, model_id FROM provider_models WHERE supports_repository_write=1 AND provider_id=?"
+      : "SELECT provider_id, model_id FROM provider_models WHERE supports_repository_write=1";
+    
+    const results = providerId
+      ? (this.raw.prepare(query).all(providerId) as Array<Record<string, unknown>>)
+      : (this.raw.prepare(query).all() as Array<Record<string, unknown>>);
+    
+    return results.map((row) => ({
+      providerId: String(row.provider_id),
+      modelId: String(row.model_id)
+    }));
   }
 
   saveRoutingConfig(config: RoutingConfig): void {

@@ -124,6 +124,7 @@ export const DiscoveredModelSchema = z.object({
   supportsVision: z.boolean(),
   supportsCaching: z.boolean(),
   supportsTokenCounting: z.boolean(),
+  supportsRepositoryWrite: z.boolean().default(false),
   contextWindow: z.number().int().positive().nullable(),
   maxOutputTokens: z.number().int().positive().nullable(),
   roles: z.array(ModelRoleSchema).default([]),
