@@ -29,9 +29,7 @@ describe("Electron runtime diagnosis", () => {
       expect(diagnostic.selectedKind).toMatch(/raw-electron|packaged-application/);
     } else {
       expect(["missing", "blocked_or_not_executable"]).toContain(diagnostic.rawLaunchStatus);
-      expect(["missing", "blocked_or_not_executable"]).toContain(
-        diagnostic.packagedLaunchStatus
-      );
+      expect(["missing", "blocked_or_not_executable"]).toContain(diagnostic.packagedLaunchStatus);
     }
   }, 40_000);
 });
