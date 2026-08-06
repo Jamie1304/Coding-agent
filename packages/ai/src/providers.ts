@@ -774,6 +774,7 @@ export class OllamaProvider extends HttpProvider {
 
 function capabilities(overrides: Partial<ProviderCapabilities> = {}): ProviderCapabilities {
   return {
+    chat: true,
     streaming: true,
     tools: true,
     structuredOutput: true,
@@ -783,6 +784,15 @@ function capabilities(overrides: Partial<ProviderCapabilities> = {}): ProviderCa
     modelDiscovery: true,
     cancellation: true,
     local: false,
+    fileRead: false,
+    fileWrite: false,
+    shellExecution: false,
+    permissionRequests: false,
+    sessionResume: false,
+    usageReporting: true,
+    localExecution: false,
+    worktreeAware: false,
+    safeRepositoryWriting: false,
     ...overrides
   };
 }

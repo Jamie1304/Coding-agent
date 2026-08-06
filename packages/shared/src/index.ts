@@ -8,6 +8,7 @@ export const runStates = [
   "REPOSITORY_ANALYSIS",
   "PROMPT_REVIEW",
   "QUESTIONING",
+  "CHANGE_REVIEW",
   "PROMPT_REVISION",
   "AWAITING_APPROVAL",
   "PREFLIGHT",
@@ -76,12 +77,19 @@ export const QuestionSchema = z.object({
   answer: z.string().nullable().default(null),
   revision: z.number().int().positive(),
   confirmed: z.boolean().default(false),
-  superseded: z.boolean().default(false)
+  superseded: z.boolean().default(false),
+  repositoryEvidence: z.array(z.string()).default([]),
+  assumptions: z.array(z.string()).default([]),
+  rejectedInterpretations: z.array(z.string()).default([]),
+  remainingUncertainty: z.string().nullable().default(null),
+  answeredAt: z.string().nullable().default(null)
 });
 export type Question = z.infer<typeof QuestionSchema>;
 
 export const PromptRevisionSchema = z.object({
   revision: z.number().int().positive(),
+  revisionId: z.string().default(""),
+  promptHash: z.string().default(""),
   content: z.string(),
   changes: z.array(z.string()),
   assumptions: z.array(z.string()),
@@ -91,6 +99,8 @@ export const PromptRevisionSchema = z.object({
   affectedComponents: z.array(z.string()),
   versionChange: z.enum(["patch", "minor", "major"]),
   sequence: z.array(z.string()),
+  nonGoals: z.array(z.string()).default([]),
+  securityRequirements: z.array(z.string()).default([]),
   approved: z.boolean().default(false),
   frozenAt: z.string().nullable().default(null)
 });

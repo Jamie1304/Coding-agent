@@ -27,6 +27,7 @@ import {
   WorkspaceSnapshotSchema
 } from "@agent/shared";
 import {
+  ChangeAnalyzer,
   ExecutionOrchestrator,
   GhCliAdapter,
   ProviderService,
@@ -215,18 +216,36 @@ export async function createDaemon(options: DaemonOptions = {}): Promise<DaemonH
     const input = RejectRequestSchema.parse(request.body);
     return runService.reject(request.params.id, input.reason);
   });
+  app.post<{ Params: { id: string } }>("/api/runs/:id/analyze-change", async (request) => {
+    const input = z.object({ suggestion: z.string().min(1).max(10_000) }).parse(request.body);
+    let runView: ReturnType<typeof runService.get>;
+    try {
+      runView = runService.get(request.params.id);
+    } catch {
+      throw new Error("Run not found");
+    }
+    const revision = database.revisions(runView.run.id).at(-1);
+    const analyzer = new ChangeAnalyzer();
+    return analyzer.analyze(input.suggestion, revision?.content ?? "");
+  });
   app.post<{ Params: { id: string } }>("/api/runs/:id/cancel", async (request) => {
     orchestrator?.cancel(request.params.id);
     return runService.cancel(request.params.id);
   });
 
   app.get("/api/providers", async () => ({ providers: providerService.list() }));
+  app.get("/api/providers/registry", async () => ({
+    providers: providerService.listProviderRecords()
+  }));
   app.post("/api/providers", async (request, reply) => {
     const configuration = ProviderConfigurationSchema.parse(request.body);
     return reply.code(201).send(providerService.save(configuration));
   });
   app.get<{ Params: { id: string } }>("/api/providers/:id", async (request) =>
     providerService.get(request.params.id)
+  );
+  app.get<{ Params: { id: string } }>("/api/providers/:id/record", async (request) =>
+    providerService.providerRecord(request.params.id)
   );
   app.patch<{ Params: { id: string } }>("/api/providers/:id", async (request) => {
     const current = database.provider(request.params.id);

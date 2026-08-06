@@ -16,6 +16,7 @@ describe("provider secret isolation", () => {
       type: configuration.type,
       displayName: configuration.displayName,
       getCapabilities: () => ({
+        chat: true,
         streaming: true,
         tools: true,
         structuredOutput: true,
@@ -24,7 +25,16 @@ describe("provider secret isolation", () => {
         tokenCounting: false,
         modelDiscovery: true,
         cancellation: true,
-        local: false
+        local: false,
+        fileRead: false,
+        fileWrite: false,
+        shellExecution: false,
+        permissionRequests: false,
+        sessionResume: false,
+        usageReporting: true,
+        localExecution: false,
+        worktreeAware: false,
+        safeRepositoryWriting: false
       }),
       validateConfiguration: async () => ({ valid: true, errors: [], warnings: [] }),
       testConnection: async () => ({ connected: true, latencyMs: 1, message: "ok" }),

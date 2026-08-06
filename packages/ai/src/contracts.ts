@@ -10,6 +10,29 @@ export const ProviderTypeSchema = z.enum([
 ]);
 export type ProviderType = z.infer<typeof ProviderTypeSchema>;
 
+export const ProviderTransportSchema = z.enum([
+  "api",
+  "openai-compatible-api",
+  "app-server",
+  "acp",
+  "json-cli",
+  "jsonl-cli",
+  "text-cli",
+  "local-backend"
+]);
+export type ProviderTransport = z.infer<typeof ProviderTransportSchema>;
+
+export const ProviderSupportSchema = z.enum([
+  "verified",
+  "available",
+  "degraded",
+  "unsupported",
+  "unavailable",
+  "not-configured",
+  "not-verified"
+]);
+export type ProviderSupport = z.infer<typeof ProviderSupportSchema>;
+
 export const ModelRoleSchema = z.enum([
   "local_trivial",
   "economy",
@@ -67,6 +90,7 @@ export const ProviderConfigurationSchema = z.object({
 export type ProviderConfiguration = z.infer<typeof ProviderConfigurationSchema>;
 
 export interface ProviderCapabilities {
+  chat: boolean;
   streaming: boolean;
   tools: boolean;
   structuredOutput: boolean;
@@ -76,6 +100,15 @@ export interface ProviderCapabilities {
   modelDiscovery: boolean;
   cancellation: boolean;
   local: boolean;
+  fileRead: boolean;
+  fileWrite: boolean;
+  shellExecution: boolean;
+  permissionRequests: boolean;
+  sessionResume: boolean;
+  usageReporting: boolean;
+  localExecution: boolean;
+  worktreeAware: boolean;
+  safeRepositoryWriting: boolean;
 }
 
 export const DiscoveredModelSchema = z.object({
@@ -206,6 +239,33 @@ export interface ProviderFailure {
   retryable: boolean;
   retryAfterMs: number | null;
   statusCode: number | null;
+}
+
+export interface CapabilityEvidence {
+  capability: keyof ProviderCapabilities;
+  supported: boolean;
+  verifiedAt: string | null;
+  method: "live-test" | "official-docs" | "deterministic-fake" | "inferred" | "user-override";
+  notes: string;
+}
+
+export interface ProviderRecord {
+  id: string;
+  displayName: string;
+  transport: ProviderTransport;
+  support: ProviderSupport;
+  capabilityEvidence: CapabilityEvidence[];
+  models: string[];
+  healthy: boolean;
+  lastSuccessfulDiagnosticAt: string | null;
+  lastVerifiedVersion: string | null;
+  lastVerifiedAt: string | null;
+  privacyClassification: "local-only" | "remote-no-training" | "remote-may-train" | "unknown";
+  costMetadata: { currency: string; notes: string } | null;
+  mayPerformRepositoryWrites: boolean;
+  unavailableReasonByCapability: Partial<Record<keyof ProviderCapabilities, string>>;
+  documentationUrl: string | null;
+  redactedConfiguration: Record<string, unknown>;
 }
 
 export interface AiProvider {
