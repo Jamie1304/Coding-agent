@@ -109,6 +109,33 @@ describe("approved step plan contracts", () => {
     expect(completionGatePassed(notApplicable)).toBe(true);
   });
 
+  it("accepts a step-level routing strategy snapshot in the approved plan", () => {
+    const approvedPlan = structuredClone(plan());
+    approvedPlan.steps[0]!.strategyRouting = {
+      strategyId: "balanced_multi_agent",
+      strategyVersion: "1.0",
+      plannerRole: "planning",
+      plannerModel: "GPT-5.6 Sol",
+      primaryWorkerRole: "coding",
+      primaryWorkerModel: "GPT-5.3 Codex",
+      testWorkerRole: "coding",
+      testWorkerModel: "GPT-5.3 Codex",
+      runtimeAnalysisRole: "verification",
+      runtimeAnalysisModel: "GPT-5.6 Luna",
+      independentReviewerRole: "code_review",
+      independentReviewerModel: "Grok 4.5",
+      releaseJudgeRole: "verification",
+      releaseJudgeModel: "GPT-5.6 Sol",
+      fallbackModels: [],
+      escalationRules: [],
+      maximumAttempts: 3,
+      maximumCost: null,
+      requiresUserApprovalForEscalation: true,
+      localOnly: false
+    };
+    expect(ApprovedStepPlanSchema.parse(approvedPlan).steps[0]?.strategyRouting).toBeDefined();
+  });
+
   it("rejects secret-like content from serialized evidence", () => {
     expect(
       StepEvidenceSchema.safeParse({

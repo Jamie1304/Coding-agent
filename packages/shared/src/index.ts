@@ -144,6 +144,39 @@ export const StepAcceptanceCriterionSchema = z.object({
 });
 export type StepAcceptanceCriterion = z.infer<typeof StepAcceptanceCriterionSchema>;
 
+export const StrategyIdSchema = z.enum([
+  "balanced_multi_agent",
+  "cost_optimized",
+  "maximum_quality",
+  "privacy_first_local"
+]);
+export type StrategyId = z.infer<typeof StrategyIdSchema>;
+
+export const StepStrategyRoutingSchema = z
+  .object({
+    strategyId: StrategyIdSchema,
+    strategyVersion: z.string(),
+    plannerRole: z.string().default("planning"),
+    plannerModel: z.string().default("GPT-5.6 Sol"),
+    primaryWorkerRole: z.string().default("coding"),
+    primaryWorkerModel: z.string().default("GPT-5.3 Codex"),
+    testWorkerRole: z.string().default("coding"),
+    testWorkerModel: z.string().default("GPT-5.3 Codex"),
+    runtimeAnalysisRole: z.string().default("verification"),
+    runtimeAnalysisModel: z.string().default("GPT-5.6 Luna"),
+    independentReviewerRole: z.string().default("code_review"),
+    independentReviewerModel: z.string().default("Grok 4.5"),
+    releaseJudgeRole: z.string().default("verification"),
+    releaseJudgeModel: z.string().default("GPT-5.6 Sol"),
+    fallbackModels: z.array(z.string()).default([]),
+    escalationRules: z.array(z.string()).default([]),
+    maximumAttempts: z.number().int().nonnegative().default(3),
+    maximumCost: z.number().nonnegative().nullable().default(null),
+    requiresUserApprovalForEscalation: z.boolean().default(true),
+    localOnly: z.boolean().default(false)
+  })
+  .optional();
+
 export const PlanStepSchema = z.object({
   id: z
     .string()
@@ -195,6 +228,7 @@ export const PlanStepSchema = z.object({
       runtime: [],
       restart: []
     }),
+  strategyRouting: StepStrategyRoutingSchema,
   runtimeValidation: z
     .object({
       startCommands: z.array(z.string()).default([]),

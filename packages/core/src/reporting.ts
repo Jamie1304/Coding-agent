@@ -51,6 +51,15 @@ export class ReportGenerator {
       `${JSON.stringify(plan, null, 2)}\n`
     );
     await writeIfMissing(join(directory, "approved-step-plan.md"), approvedStepPlanMarkdown(plan));
+    const strategySnapshot = plan.steps
+      .filter((step) => step.strategyRouting)
+      .map((step) => ({ stepId: step.id, strategyRouting: step.strategyRouting }));
+    if (strategySnapshot.length) {
+      await writeIfMissing(
+        join(directory, "strategy-routing.json"),
+        `${JSON.stringify(strategySnapshot, null, 2)}\n`
+      );
+    }
     return directory;
   }
 

@@ -81,6 +81,18 @@ export class ModelRouter {
       context.budget.dailyLimit === null
         ? Infinity
         : context.budget.dailyLimit - context.spentToday;
+    const strategy = context.config.strategy;
+    const effectiveLocalOnly =
+      context.config.localOnly || (strategy?.localOnly ?? false);
+    const strategyMaximumCost = strategy?.maximumCost ?? Infinity;
+    const preferredModelForRole = new Map<string, string>([
+      [strategy?.plannerRole ?? "planning", strategy?.plannerModel ?? ""],
+      [strategy?.primaryWorkerRole ?? "coding", strategy?.primaryWorkerModel ?? ""],
+      [strategy?.testWorkerRole ?? "coding", strategy?.testWorkerModel ?? ""],
+      [strategy?.runtimeAnalysisRole ?? "verification", strategy?.runtimeAnalysisModel ?? ""],
+      [strategy?.independentReviewerRole ?? "code_review", strategy?.independentReviewerModel ?? ""]
+    ]);
+    const preferredModelId = preferredModelForRole.get(task.role);
 
     for (const model of context.models) {
       const rejected: string[] = [];
@@ -94,11 +106,7 @@ export class ModelRouter {
         rejected.push("context_window");
       if (task.repositoryWrite && task.role !== "coding")
         rejected.push("repository_tooling_required");
-      if (
-        (context.config.localOnly ||
-          (task.sensitive && context.config.profile === "maximum_privacy")) &&
-        !model.local
-      )
+      if ((effectiveLocalOnly || (task.sensitive && context.config.profile === "maximum_privacy")) && !model.local)
         rejected.push("privacy_local_only");
       if (!model.local && context.config.cloudRequiresApproval && !context.cloudApproved)
         rejected.push("cloud_approval_required");
@@ -115,7 +123,8 @@ export class ModelRouter {
         remainingRun,
         remainingDaily,
         context.budget.perTaskLimit ?? Infinity,
-        model.maximumTaskCost ?? Infinity
+        model.maximumTaskCost ?? Infinity,
+        strategyMaximumCost
       );
       if (estimatedCost !== null && estimatedCost > ceiling) rejected.push("budget_exceeded");
       if (rejected.length) {
@@ -143,24 +152,33 @@ export class ModelRouter {
       const cacheBenefit = model.supportsCaching && context.cacheKeys.has(cacheKey) ? 1 : 0;
       const privacy = model.local ? 1 : task.sensitive ? 0 : 0.5;
       const weights = context.config.weights;
-      const score =
+      let score =
         capabilityScore * weights.capability +
         learnedReliability * weights.reliability +
         latencyScore * weights.latency +
         costEfficiency * weights.cost +
         cacheBenefit * weights.cache +
         privacy * weights.privacy;
+      const reasons = [
+        `tier_${tier}`,
+        `capability_${capabilityScore.toFixed(2)}`,
+        `reliability_${learnedReliability.toFixed(2)}`,
+        model.local ? "local_privacy" : "cloud_eligible",
+        cacheBenefit ? "cache_hit_available" : "cache_miss"
+      ];
+      if (preferredModelId && model.modelId === preferredModelId) {
+        score += 2;
+        reasons.push("strategy_preferred_model");
+      }
+      if (strategy?.fallbackModels?.includes(model.modelId)) {
+        score += 0.5;
+        reasons.push("strategy_fallback_candidate");
+      }
       candidates.push({
         model,
         score,
         estimatedCost,
-        reasons: [
-          `tier_${tier}`,
-          `capability_${capabilityScore.toFixed(2)}`,
-          `reliability_${learnedReliability.toFixed(2)}`,
-          model.local ? "local_privacy" : "cloud_eligible",
-          cacheBenefit ? "cache_hit_available" : "cache_miss"
-        ]
+        reasons
       });
     }
 
@@ -200,7 +218,13 @@ export class ModelRouter {
         : tier === "trivial"
           ? "deterministic"
           : "self_check",
-      parallelEligible: !task.repositoryWrite || task.likelyFiles.length > 0
+      parallelEligible: !task.repositoryWrite || task.likelyFiles.length > 0,
+      strategyId: strategy?.id,
+      strategyVersion: strategy?.version,
+      strategyName: strategy?.name,
+      strategyDescription: strategy?.description,
+      strategyFallbackModels: strategy?.fallbackModels,
+      strategyEscalationRules: strategy?.escalationRules
     };
   }
 }

@@ -11,7 +11,9 @@ import type {
   DiscoveredModel,
   ProviderConfiguration,
   ProviderType,
-  RoutingDecision
+  RoutingConfig,
+  RoutingDecision,
+  StrategyId
 } from "@agent/ai";
 import "./styles.css";
 
@@ -1339,6 +1341,25 @@ function RoutingPage({
   const [decision, setDecision] = useState<RoutingDecision | null>(null);
   const [budget, setBudget] = useState("5");
   const [profile, setProfile] = useState("balanced");
+  const [strategyId, setStrategyId] = useState<StrategyId>("balanced_multi_agent");
+  const [strategyCost, setStrategyCost] = useState("");
+  const [strategyLocalOnly, setStrategyLocalOnly] = useState(false);
+  const [strategyDescription, setStrategyDescription] = useState(
+    "Use specialized models for different responsibilities while keeping the workflow controller authoritative."
+  );
+
+  useEffect(() => {
+    void perform(async () => {
+      const config = await api<RoutingConfig>("/api/routing/config");
+      setProfile(config.profile);
+      if (config.strategy) {
+        setStrategyId(config.strategy.id);
+        setStrategyCost(config.strategy.maximumCost?.toString() ?? "");
+        setStrategyLocalOnly(config.strategy.localOnly ?? false);
+        setStrategyDescription(config.strategy.description);
+      }
+    });
+  }, [api, perform]);
 
   const simulate = (): void => {
     void perform(async () => {
@@ -1390,11 +1411,24 @@ function RoutingPage({
       });
     });
   };
-  const saveProfile = (): void => {
+  const saveRoutingConfig = (): void => {
     void perform(async () => {
       await api("/api/routing/config", {
         method: "PATCH",
-        body: JSON.stringify({ profile })
+        body: JSON.stringify({
+          profile,
+          strategy: {
+            id: strategyId,
+            version: "1.0",
+            name: strategyId
+              .split("_")
+              .map((word) => (word.length ? word.charAt(0).toUpperCase() + word.slice(1) : ""))
+              .join(" "),
+            description: strategyDescription,
+            maximumCost: strategyCost.trim() ? Number(strategyCost) : null,
+            localOnly: strategyLocalOnly
+          }
+        })
       });
     });
   };
@@ -1501,8 +1535,46 @@ function RoutingPage({
               <option value="maximum_privacy">Maximum privacy</option>
               <option value="custom">Custom</option>
             </select>
-            <button className="secondary" onClick={saveProfile}>
-              Save routing profile
+            <button className="secondary" onClick={saveRoutingConfig}>
+              Save routing configuration
+            </button>
+            <label htmlFor="strategy-id">Strategy</label>
+            <select
+              id="strategy-id"
+              value={strategyId}
+              onChange={(event) => setStrategyId(event.target.value as StrategyId)}
+            >
+              <option value="balanced_multi_agent">Balanced multi-agent</option>
+              <option value="cost_optimized">Cost optimized</option>
+              <option value="maximum_quality">Maximum quality</option>
+              <option value="privacy_first_local">Privacy first local</option>
+            </select>
+            <label htmlFor="strategy-cost">Maximum strategy spend</label>
+            <input
+              id="strategy-cost"
+              type="number"
+              min="0"
+              step="0.5"
+              value={strategyCost}
+              onChange={(event) => setStrategyCost(event.target.value)}
+            />
+            <label htmlFor="strategy-local-only">
+              <input
+                id="strategy-local-only"
+                type="checkbox"
+                checked={strategyLocalOnly}
+                onChange={(event) => setStrategyLocalOnly(event.target.checked)}
+              />
+              Local-only strategy
+            </label>
+            <label htmlFor="strategy-description">Strategy description</label>
+            <textarea
+              id="strategy-description"
+              value={strategyDescription}
+              onChange={(event) => setStrategyDescription(event.target.value)}
+            />
+            <button className="secondary" onClick={saveRoutingConfig}>
+              Save strategy
             </button>
             <label htmlFor="run-budget">Maximum cost per run (USD)</label>
             <input

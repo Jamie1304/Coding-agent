@@ -244,6 +244,66 @@ export const RoutingProfileSchema = z.enum([
   "custom"
 ]);
 
+export const StrategyIdSchema = z.enum([
+  "balanced_multi_agent",
+  "cost_optimized",
+  "maximum_quality",
+  "privacy_first_local"
+]);
+export type StrategyId = z.infer<typeof StrategyIdSchema>;
+
+export const StrategyRoutingSchema = z.object({
+  id: StrategyIdSchema.default("balanced_multi_agent"),
+  version: z.string().default("1.0"),
+  name: z.string().default("Balanced Multi-Agent Engineering"),
+  description: z
+    .string()
+    .default(
+      "Use specialized models for different responsibilities while keeping the workflow controller authoritative."
+    ),
+  roleAssignments: z
+    .record(z.string(), z.string())
+    .default({
+      task_classification: "planning",
+      master_planning: "planning",
+      repository_inventory: "repository_analysis",
+      documentation_research: "documentation",
+      normal_coding: "coding",
+      hard_debugging: "debugging",
+      large_mechanical_changes: "coding",
+      test_generation: "coding",
+      test_log_classification: "verification",
+      independent_code_review: "code_review",
+      ui_and_screenshot_analysis: "vision",
+      security_review: "security_review",
+      final_release_decision: "verification",
+      offline_private_processing: "local_trivial"
+    }),
+  plannerRole: z.string().default("planning"),
+  plannerModel: z.string().default("GPT-5.6 Sol"),
+  primaryWorkerRole: z.string().default("coding"),
+  primaryWorkerModel: z.string().default("GPT-5.3 Codex"),
+  testWorkerRole: z.string().default("coding"),
+  testWorkerModel: z.string().default("GPT-5.3 Codex"),
+  runtimeAnalysisRole: z.string().default("verification"),
+  runtimeAnalysisModel: z.string().default("GPT-5.6 Luna"),
+  independentReviewerRole: z.string().default("code_review"),
+  independentReviewerModel: z.string().default("Grok 4.5"),
+  releaseJudgeRole: z.string().default("verification"),
+  releaseJudgeModel: z.string().default("GPT-5.6 Sol"),
+  fallbackModels: z.array(z.string()).default([]),
+  escalationRules: z
+    .array(z.string())
+    .default([
+      "hard_debugging_after_retries",
+      "critical_disagreement_requires_sol"
+    ]),
+  maximumAttempts: z.number().int().nonnegative().default(3),
+  maximumCost: z.number().nonnegative().nullable().default(null),
+  requiresUserApprovalForEscalation: z.boolean().default(true),
+  localOnly: z.boolean().default(false)
+});
+
 export const RoutingConfigSchema = z.object({
   profile: RoutingProfileSchema.default("balanced"),
   weights: z
@@ -277,7 +337,8 @@ export const RoutingConfigSchema = z.object({
       criticalRequiresIndependent: true,
       largeRequiresIndependent: false,
       preferDifferentProvider: true
-    })
+    }),
+  strategy: StrategyRoutingSchema.optional()
 });
 export type RoutingConfig = z.infer<typeof RoutingConfigSchema>;
 
@@ -320,4 +381,10 @@ export interface RoutingDecision {
   fallbackChain: Array<{ providerId: string; modelId: string }>;
   verificationPolicy: "deterministic" | "self_check" | "independent";
   parallelEligible: boolean;
+  strategyId?: StrategyId | undefined;
+  strategyVersion?: string | undefined;
+  strategyName?: string | undefined;
+  strategyDescription?: string | undefined;
+  strategyFallbackModels?: string[] | undefined;
+  strategyEscalationRules?: string[] | undefined;
 }
