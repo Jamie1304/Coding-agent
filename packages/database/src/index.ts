@@ -350,8 +350,15 @@ export class AgentDatabase {
     this.transaction(() => {
       for (const model of models) {
         this.raw
-          .prepare("INSERT OR REPLACE INTO provider_models VALUES(?,?,?)")
-          .run(providerId, model.modelId, JSON.stringify(model));
+          .prepare(
+            "INSERT OR REPLACE INTO provider_models VALUES(?,?,?,?)"
+          )
+          .run(
+            providerId,
+            model.modelId,
+            JSON.stringify(model),
+            model.supportsRepositoryWrite ? 1 : 0
+          );
       }
       this.raw
         .prepare(
