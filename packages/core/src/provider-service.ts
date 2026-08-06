@@ -8,10 +8,12 @@ import {
   ModelRoleSchema,
   ProviderConfigurationSchema,
   RoutingConfigSchema,
+  buildProviderRecord,
   type AiProvider,
   type BudgetConfig,
   type DiscoveredModel,
   type ProviderConfiguration,
+  type ProviderRecord,
   type ProviderType,
   type RoutingConfig,
   type SecretStore,
@@ -498,6 +500,35 @@ export class ProviderService {
     const configuration = this.database.provider(id);
     if (!configuration) throw new Error(`Provider not found: ${id}`);
     return configuration;
+  }
+
+  providerRecord(id: string): ProviderRecord {
+    const configuration = this.requireConfiguration(id);
+    const provider = this.provider(configuration);
+    const models = this.database.models(id);
+    // Use the last known health from the provider instance (non-blocking).
+    const lastHealth =
+      "lastHealth" in provider && provider.lastHealth != null
+        ? (provider.lastHealth as { healthy: boolean; checkedAt: string })
+        : null;
+    const { secretReference, sensitiveHeadersReference, ...nonSecret } = configuration;
+    return buildProviderRecord(provider, {
+      models: models.map((model) => model.modelId),
+      healthy: lastHealth?.healthy ?? false,
+      hasCredential: Boolean(secretReference),
+      lastSuccessfulDiagnosticAt: lastHealth?.healthy ? lastHealth.checkedAt : null,
+      lastVerifiedVersion: null,
+      lastVerifiedAt: lastHealth?.healthy ? lastHealth.checkedAt : null,
+      redactedConfiguration: {
+        ...nonSecret,
+        hasCredential: Boolean(secretReference),
+        hasSensitiveHeaders: Boolean(sensitiveHeadersReference)
+      }
+    });
+  }
+
+  listProviderRecords(): ProviderRecord[] {
+    return this.database.providers().map((configuration) => this.providerRecord(configuration.id));
   }
 
   private provider(configuration: ProviderConfiguration): AiProvider {

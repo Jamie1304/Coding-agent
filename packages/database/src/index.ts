@@ -85,6 +85,35 @@ const migrations = [
    );
    CREATE TABLE IF NOT EXISTS routing_decisions(
      task_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, payload_json TEXT NOT NULL
+   );`,
+  `CREATE TABLE IF NOT EXISTS clarification_questions(
+    id TEXT PRIMARY KEY, run_id TEXT NOT NULL, text TEXT NOT NULL,
+    question_type TEXT NOT NULL, priority TEXT NOT NULL,
+    repository_evidence_json TEXT, assumptions_json TEXT,
+    rejected_interpretations_json TEXT, remaining_uncertainty TEXT,
+    answered_at TEXT, answer TEXT, payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(run_id) REFERENCES runs(id)
+   );
+   CREATE TABLE IF NOT EXISTS prompt_revision_hashes(
+    run_id TEXT NOT NULL, revision INTEGER NOT NULL, revision_id TEXT NOT NULL,
+    prompt_hash TEXT NOT NULL, created_at TEXT NOT NULL,
+    PRIMARY KEY(run_id, revision), FOREIGN KEY(run_id) REFERENCES runs(id)
+   );
+   CREATE TABLE IF NOT EXISTS approval_events(
+    id TEXT PRIMARY KEY, run_id TEXT NOT NULL, revision INTEGER NOT NULL,
+    revision_id TEXT NOT NULL, prompt_hash TEXT NOT NULL,
+    approved_by TEXT NOT NULL DEFAULT 'user', occurred_at TEXT NOT NULL,
+    FOREIGN KEY(run_id) REFERENCES runs(id)
+   );
+   CREATE TABLE IF NOT EXISTS change_analyses(
+    id TEXT PRIMARY KEY, run_id TEXT NOT NULL, suggestion_id TEXT NOT NULL,
+    suggestion TEXT NOT NULL, current_content TEXT NOT NULL,
+    classification TEXT NOT NULL, action TEXT NOT NULL,
+    explanation TEXT NOT NULL, proposed_alternative TEXT,
+    invalidates_approval INTEGER NOT NULL DEFAULT 0,
+    new_questions_json TEXT, effects_json TEXT, created_at TEXT NOT NULL,
+    FOREIGN KEY(run_id) REFERENCES runs(id)
    );`
 ];
 

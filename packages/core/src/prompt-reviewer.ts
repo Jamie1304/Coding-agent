@@ -1,41 +1,237 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { PromptRevision, Question, WorkspaceAnalysis } from "@agent/shared";
 
-const materialPatterns = [
-  {
-    id: "behavior",
-    test: (prompt: string) => !/(should|must|when|if|acceptance|expected)/i.test(prompt),
-    text: "What observable behavior should be considered successful?",
-    reason: "The request does not define a verifiable outcome.",
-    affects: "Acceptance criteria and behavior tests",
-    options: ["Match an existing pattern", "Define a new explicit behavior"]
-  },
-  {
-    id: "compatibility",
-    test: (prompt: string) => /(?:api|database|schema|migration|public)/i.test(prompt),
-    text: "Must this change remain backward compatible with existing consumers and stored data?",
-    reason: "The request may alter a compatibility boundary.",
-    affects: "Version bump, migrations, and rollback strategy",
-    options: ["Yes, preserve compatibility", "No, a breaking change is acceptable"]
-  },
-  {
-    id: "failure",
-    test: (prompt: string) =>
-      /(?:integration|network|upload|deploy|external|service)/i.test(prompt),
-    text: "What should users observe when the external operation fails or times out?",
-    reason: "Failure behavior changes the implementation and recovery tests.",
-    affects: "Error handling, retries, and user feedback",
-    options: ["Fail safely with retry", "Block and require manual recovery"]
-  },
-  {
-    id: "security",
-    test: (prompt: string) => /(?:auth|secret|token|permission|user|credential)/i.test(prompt),
-    text: "Which trust boundary and credential-storage rules apply?",
-    reason: "Security-sensitive behavior must be explicit before implementation.",
-    affects: "Authorization checks, storage, redaction, and security tests",
-    options: ["Use existing project security conventions", "Define a new scoped policy"]
+/**
+ * A candidate clarification question generated from request analysis.
+ * Each candidate identifies a specific material unknown with evidence.
+ */
+interface QuestionCandidate {
+  id: string;
+  text: string;
+  reason: string;
+  affects: string;
+  options: string[];
+  repositoryEvidence: string[];
+  assumptions: string[];
+  isRejectionFollowUp?: boolean;
+}
+
+/**
+ * Analyses a rough request against repository evidence to generate
+ * adaptive, material clarification questions.
+ *
+ * Material questions are those whose answers can change:
+ * scope, public behavior, architecture, persistent data, security,
+ * provider choice, IDE behavior, compatibility, cost, privacy, tests,
+ * deployment, rollback, user-visible workflow, or definition of done.
+ */
+function deriveQuestionCandidates(
+  prompt: string,
+  analysis: WorkspaceAnalysis
+): QuestionCandidate[] {
+  const candidates: QuestionCandidate[] = [];
+  const hasFiles = analysis.files.length > 0;
+  const isGitRepo = analysis.git.isRepository;
+  const hasTests = analysis.testCommands.length > 0;
+  const techs = analysis.technologies.join(", ");
+
+  // --- Observable behavior ---
+  if (!/(should|must|when|if|acceptance\s+criteria|expected\s+result|observable)/i.test(prompt)) {
+    candidates.push({
+      id: "behavior",
+      text: "What observable behavior should be considered successful — what exactly changes for the user?",
+      reason:
+        "The request does not define a verifiable outcome, making acceptance criteria impossible to write.",
+      affects: "Acceptance criteria, behavior tests, and definition of done",
+      options: [
+        "Match the behavior of an existing similar feature",
+        "Define a new explicit user-facing outcome"
+      ],
+      repositoryEvidence: hasTests
+        ? [`Detected test commands: ${analysis.testCommands.join(", ")}`]
+        : ["No automated test commands detected"],
+      assumptions: []
+    });
   }
-];
+
+  // --- Backward compatibility ---
+  if (/(?:api|database|schema|migration|public\s+interface|breaking)/i.test(prompt)) {
+    const dbEvidence: string[] = [];
+    if (analysis.files.some((file) => /migration|schema|\.sql/i.test(file))) {
+      dbEvidence.push("Repository contains migration or schema files");
+    }
+    if (/package\.json/.test(analysis.files.join(","))) {
+      dbEvidence.push("Node.js project detected — version bump may be required");
+    }
+    candidates.push({
+      id: "compatibility",
+      text: "Must this change remain backward compatible with existing API consumers, stored data, or dependent systems?",
+      reason:
+        "The request touches an API, schema, or public interface that may have existing consumers.",
+      affects: "Version bump, migration strategy, deprecation plan, and rollback path",
+      options: [
+        "Yes — full backward compatibility required",
+        "Tolerate a limited breaking change with migration guide",
+        "Breaking change acceptable"
+      ],
+      repositoryEvidence: dbEvidence,
+      assumptions: ["All changes preserve compatibility unless explicitly stated otherwise"]
+    });
+  }
+
+  // --- Failure and error handling ---
+  if (
+    /(?:integration|network|upload|deploy|external|service|webhook|api\s+call|http)/i.test(prompt)
+  ) {
+    candidates.push({
+      id: "failure",
+      text: "What should users observe when the external operation fails, times out, or returns an error?",
+      reason:
+        "External operations fail unpredictably; failure behavior determines retry logic, user messaging, and recovery paths.",
+      affects: "Error handling, retry policy, user feedback, and recovery tests",
+      options: [
+        "Fail transparently with a clear error message and retry option",
+        "Queue and retry silently",
+        "Block and require manual recovery"
+      ],
+      repositoryEvidence: [],
+      assumptions: []
+    });
+  }
+
+  // --- Security and credentials ---
+  if (/(?:auth|secret|token|permission|user|credential|role|access|trust)/i.test(prompt)) {
+    const secEvidence: string[] = [];
+    if (isGitRepo)
+      secEvidence.push("Repository is version-controlled — credentials must not appear in commits");
+    if (analysis.technologies.some((t) => /node|electron/i.test(t))) {
+      secEvidence.push("Node.js/Electron architecture — renderer must remain sandboxed");
+    }
+    candidates.push({
+      id: "security",
+      text: "Which trust boundary and credential-storage rules apply to this change?",
+      reason:
+        "Security-sensitive behavior must be explicit before implementation to avoid credential leaks or privilege escalation.",
+      affects:
+        "Authorization checks, credential storage, redaction, sandbox boundaries, and security tests",
+      options: [
+        "Use existing project security conventions (Windows Credential Manager + sandboxed renderer)",
+        "Define a new scoped security policy"
+      ],
+      repositoryEvidence: secEvidence,
+      assumptions: [
+        "Credentials are stored in OS-protected storage; they do not appear in SQLite, logs, or renderer state"
+      ]
+    });
+  }
+
+  // --- Scope and affected components ---
+  if (hasFiles && !/scope|only|just|specifically|limited\s+to|within/i.test(prompt)) {
+    const relevantFiles = analysis.files
+      .filter((file) => /src|lib|packages|apps/i.test(file))
+      .slice(0, 5);
+    if (relevantFiles.length > 0) {
+      candidates.push({
+        id: "scope",
+        text: `Is the change scoped to specific files or components, or does it span the whole repository?`,
+        reason:
+          "Without a clear scope, implementation may inadvertently affect unrelated components.",
+        affects: "Implementation scope, affected files, test coverage, and review effort",
+        options: ["Scoped to a specific module or feature", "Repository-wide change"],
+        repositoryEvidence: [
+          `Repository has ${analysis.files.length} tracked files; e.g. ${relevantFiles.join(", ")}`
+        ],
+        assumptions: []
+      });
+    }
+  }
+
+  // --- Validation when no test commands detected ---
+  if (!hasTests) {
+    candidates.push({
+      id: "validation",
+      text: "Which command or observable check should validate this change?",
+      reason: `No automated test commands were detected in ${techs || "this project"}.`,
+      affects: "The required quality gate and CI configuration",
+      options: [
+        "Add a project-native automated test",
+        "Use a manual verification step",
+        "Extend an existing test suite"
+      ],
+      repositoryEvidence:
+        analysis.technologies.length > 0 ? [`Detected technologies: ${techs}`] : [],
+      assumptions: []
+    });
+  }
+
+  // --- Migration concerns for database changes ---
+  if (/(?:database|schema|sqlite|migration|table|column|add\s+field)/i.test(prompt)) {
+    if (!/(migration|upgrade|rollback)/i.test(prompt)) {
+      candidates.push({
+        id: "migration",
+        text: "Does this schema change require a database migration, and what is the rollback strategy?",
+        reason:
+          "Schema changes to existing tables require safe migrations and rollback procedures.",
+        affects: "Migration scripts, data integrity, rollback plan, and deployment sequence",
+        options: [
+          "Add a versioned migration with rollback",
+          "In-place schema change without migration (new installations only)"
+        ],
+        repositoryEvidence: analysis.files
+          .filter((file) => /database|migration|sqlite/i.test(file))
+          .slice(0, 3),
+        assumptions: []
+      });
+    }
+  }
+
+  // --- Privacy and data handling for user data ---
+  if (/(?:user\s+data|personal|pii|privacy|gdpr|log|telemetry|analytics)/i.test(prompt)) {
+    candidates.push({
+      id: "privacy",
+      text: "Does this change collect, store, or transmit any user-identifiable or sensitive data?",
+      reason: "Personal data handling has legal, compliance, and user-trust implications.",
+      affects: "Data retention policy, encryption, anonymization, and audit trail",
+      options: [
+        "No personal data involved",
+        "Personal data handled with explicit consent and secure storage",
+        "Anonymized aggregate data only"
+      ],
+      repositoryEvidence: [],
+      assumptions: []
+    });
+  }
+
+  return candidates;
+}
+
+/**
+ * Deduplicate candidates against already-asked questions.
+ * A question is considered already asked if its base ID appears in the existing list
+ * AND the existing answer is not contradicted by a rejection reason.
+ */
+function deduplicate(
+  candidates: QuestionCandidate[],
+  existing: Question[],
+  rejectionReason?: string
+): QuestionCandidate[] {
+  const asked = new Set(existing.map((q) => q.id.split(":")[0]));
+  return candidates.filter((candidate) => {
+    if (!asked.has(candidate.id)) return true;
+    // Re-ask if there's a direct contradiction with an existing answer
+    if (rejectionReason) {
+      const lower = rejectionReason.toLowerCase();
+      const conflict = existing.find(
+        (q) =>
+          q.id.startsWith(candidate.id) &&
+          q.answer &&
+          lower.includes(q.answer.toLowerCase().slice(0, 20))
+      );
+      return Boolean(conflict);
+    }
+    return false;
+  });
+}
 
 export class PromptReviewer {
   createQuestions(
@@ -45,31 +241,30 @@ export class PromptReviewer {
     existing: Question[] = [],
     rejectionReason?: string
   ): Question[] {
-    const asked = new Set(existing.map((question) => question.id.split(":")[0]));
-    const candidates = materialPatterns.filter(
-      (pattern) =>
-        pattern.test(prompt) && (!asked.has(pattern.id) || contradicts(existing, rejectionReason))
-    );
+    const candidates: QuestionCandidate[] = [];
+
+    // Rejection follow-up always comes first and counts as a question
     if (rejectionReason) {
-      candidates.unshift({
-        id: `rejection-${createHash("sha1").update(rejectionReason).digest("hex").slice(0, 8)}`,
-        test: () => true,
-        text: `Which concrete requirement should replace the rejected interpretation: “${rejectionReason.slice(0, 180)}”?`,
-        reason: "The rejection must become an explicit implementation decision.",
-        affects: "The next prompt revision and acceptance criteria",
-        options: []
-      });
-    }
-    if (analysis.testCommands.length === 0 && !asked.has("validation")) {
+      const rejectId = `rejection-${createHash("sha1").update(rejectionReason).digest("hex").slice(0, 8)}`;
       candidates.push({
-        id: "validation",
-        test: () => true,
-        text: "Which command or observable check should validate this change?",
-        reason: "No reliable project test command was detected.",
-        affects: "The required quality gate",
-        options: ["Add a project-native automated test", "Use an explicit manual verification"]
+        id: rejectId,
+        text: `Which concrete requirement should replace the rejected interpretation: "${rejectionReason.slice(0, 180)}"?`,
+        reason:
+          "The rejection must become an explicit implementation decision before revising the specification.",
+        affects: "The next prompt revision and acceptance criteria",
+        options: [],
+        repositoryEvidence: [],
+        assumptions: [],
+        isRejectionFollowUp: true
       });
     }
+
+    // Derive adaptive candidates from the request and repository evidence
+    const derived = deriveQuestionCandidates(prompt, analysis);
+    const filtered = deduplicate(derived, existing, rejectionReason);
+    candidates.push(...filtered);
+
+    // Return at most 3 questions per round so the user is not overwhelmed
     return candidates.slice(0, 3).map((candidate) => ({
       id: `${candidate.id}:${randomUUID()}`,
       text: candidate.text,
@@ -79,8 +274,28 @@ export class PromptReviewer {
       answer: null,
       revision,
       confirmed: false,
-      superseded: false
+      superseded: false,
+      repositoryEvidence: candidate.repositoryEvidence,
+      assumptions: candidate.assumptions,
+      rejectedInterpretations: [],
+      remainingUncertainty: null,
+      answeredAt: null
     }));
+  }
+
+  /**
+   * Returns true when no further material questions remain.
+   * Clarification is complete when all required questions are answered
+   * OR no new material questions can be generated.
+   */
+  isComplete(prompt: string, analysis: WorkspaceAnalysis, existing: Question[]): boolean {
+    const candidates = deriveQuestionCandidates(prompt, analysis);
+    const remaining = deduplicate(candidates, existing);
+    // Complete when all candidates are either answered or not applicable
+    const unanswered = remaining.filter(
+      (c) => !existing.some((q) => q.id.startsWith(c.id) && q.confirmed && q.answer)
+    );
+    return unanswered.length === 0;
   }
 
   revise(
@@ -104,6 +319,24 @@ export class PromptReviewer {
       "Add or update tests for every changed behavior.",
       "Run detected quality gates and review the final diff before completion."
     ];
+
+    // Infer security requirements from questions answered on security topics
+    const securityRequirements: string[] = [];
+    for (const q of questions) {
+      if (q.id.startsWith("security") && q.confirmed && q.answer) {
+        securityRequirements.push(q.answer);
+      }
+    }
+    if (analysis.technologies.some((t) => /electron/i.test(t))) {
+      securityRequirements.push("Renderer must remain sandboxed and unprivileged.");
+      securityRequirements.push("Secrets must not appear in SQLite, renderer state, or logs.");
+    }
+
+    const nonGoals = [
+      "No deployment unless .agent/project.yml explicitly configures it.",
+      "No force-push or direct push to the default branch."
+    ];
+
     const sections = [
       "# Approved implementation specification",
       "",
@@ -114,6 +347,7 @@ export class PromptReviewer {
       `- Workspace: ${analysis.snapshot.path}`,
       `- Technologies: ${analysis.technologies.join(", ") || "not detected"}`,
       `- Starting commit: ${analysis.git.commit ?? "not a Git repository"}`,
+      `- Branch: ${analysis.git.branch ?? "unknown"}`,
       "",
       "## Confirmed decisions",
       ...(decisions.length ? decisions.map((item) => `- ${item}`) : ["- None required."]),
@@ -121,21 +355,42 @@ export class PromptReviewer {
       "## Acceptance criteria",
       ...criteria.map((item) => `- ${item}`),
       "",
+      "## Security requirements",
+      ...(securityRequirements.length
+        ? securityRequirements.map((item) => `- ${item}`)
+        : ["- Follow existing project security conventions."]),
+      "",
+      "## Non-goals",
+      ...nonGoals.map((item) => `- ${item}`),
+      "",
       "## Required validation",
       ...tests.map((item) => `- ${item}`)
     ];
+
+    const content = sections.join("\n");
+    const revisionId = randomUUID();
+    const promptHash = createHash("sha256").update(content).digest("hex");
+
     return {
       revision,
-      content: sections.join("\n"),
+      revisionId,
+      promptHash,
+      content,
       changes: [
         "Added detected repository context.",
         "Converted the request into observable acceptance criteria.",
         "Mapped validation to detected project commands.",
+        ...(securityRequirements.length
+          ? ["Added security requirements from confirmed answers."]
+          : []),
         ...(rejectionReason ? [`Replaced rejected interpretation: ${rejectionReason}`] : [])
       ],
       assumptions: [
         "Existing project conventions remain authoritative where the specification is silent.",
-        "No deployment occurs unless .agent/project.yml explicitly configures it."
+        "No deployment occurs unless .agent/project.yml explicitly configures it.",
+        ...questions
+          .filter((q) => q.assumptions.length > 0 && q.confirmed)
+          .flatMap((q) => q.assumptions)
       ],
       acceptanceCriteria: criteria,
       tests,
@@ -145,6 +400,8 @@ export class PromptReviewer {
       ],
       affectedComponents: inferComponents(originalPrompt, analysis.files),
       versionChange: inferVersionChange(originalPrompt),
+      nonGoals,
+      securityRequirements,
       sequence: [
         "Inspect relevant code and existing tests.",
         "Implement the smallest coherent change.",
@@ -156,14 +413,6 @@ export class PromptReviewer {
       frozenAt: null
     };
   }
-}
-
-function contradicts(existing: Question[], rejectionReason?: string): boolean {
-  if (!rejectionReason) return false;
-  const lower = rejectionReason.toLowerCase();
-  return existing.some(
-    (question) => question.answer && lower.includes(question.answer.toLowerCase().slice(0, 20))
-  );
 }
 
 function inferComponents(prompt: string, files: string[]): string[] {
