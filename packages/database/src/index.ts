@@ -1,5 +1,26 @@
 import { DatabaseSync } from "node:sqlite";
-import type { AgentRun, PromptRevision, Question, TimelineEvent } from "@agent/shared";
+import {
+  ApprovedStepPlanSchema,
+  type AgentRun,
+  type ApprovedStepPlan,
+  type PlanStep,
+  PlanStepSchema,
+  type PromptRevision,
+  type Question,
+  StepAmendmentSchema,
+  type StepAmendment,
+  StepCompletionGateSchema,
+  type StepCompletionGate,
+  StepEvidenceSchema,
+  type StepEvidence,
+  StepRuntimeErrorSchema,
+  type StepRuntimeError,
+  RuntimeCorrectionAttemptSchema,
+  type RuntimeCorrectionAttempt,
+  StepTerminalOperationSchema,
+  type StepTerminalOperation,
+  type TimelineEvent
+} from "@agent/shared";
 import type {
   BudgetConfig,
   DiscoveredModel,
@@ -85,7 +106,84 @@ const migrations = [
    );
    CREATE TABLE IF NOT EXISTS routing_decisions(
      task_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, payload_json TEXT NOT NULL
-   );`
+   );`,
+  `CREATE TABLE IF NOT EXISTS approved_step_plans(
+     run_id TEXT PRIMARY KEY, plan_id TEXT NOT NULL, approved_revision INTEGER NOT NULL,
+     frozen_at TEXT NOT NULL, created_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+     FOREIGN KEY(run_id) REFERENCES runs(id)
+   );
+   CREATE TABLE IF NOT EXISTS approved_plan_steps(
+     run_id TEXT NOT NULL, step_id TEXT NOT NULL, step_order INTEGER NOT NULL, state TEXT NOT NULL,
+     payload_json TEXT NOT NULL, PRIMARY KEY(run_id, step_id),
+     FOREIGN KEY(run_id) REFERENCES runs(id)
+   );
+   CREATE TABLE IF NOT EXISTS step_completion_gates(
+     run_id TEXT NOT NULL, step_id TEXT NOT NULL, state TEXT NOT NULL, updated_at TEXT NOT NULL,
+     payload_json TEXT NOT NULL, PRIMARY KEY(run_id, step_id),
+     FOREIGN KEY(run_id, step_id) REFERENCES approved_plan_steps(run_id, step_id)
+   );
+   CREATE TABLE IF NOT EXISTS step_amendments(
+     id TEXT PRIMARY KEY, run_id TEXT NOT NULL, step_id TEXT NOT NULL, status TEXT NOT NULL,
+     proposed_at TEXT NOT NULL, approved_at TEXT, payload_json TEXT NOT NULL,
+     FOREIGN KEY(run_id, step_id) REFERENCES approved_plan_steps(run_id, step_id)
+   );
+   CREATE TABLE IF NOT EXISTS step_evidence(
+     id TEXT PRIMARY KEY, run_id TEXT NOT NULL, step_id TEXT NOT NULL, kind TEXT NOT NULL,
+     locator TEXT NOT NULL, content_hash TEXT, created_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+     FOREIGN KEY(run_id, step_id) REFERENCES approved_plan_steps(run_id, step_id)
+   );
+   CREATE TABLE IF NOT EXISTS step_terminal_operations(
+     id TEXT PRIMARY KEY, run_id TEXT NOT NULL, step_id TEXT NOT NULL, status TEXT NOT NULL,
+     started_at TEXT NOT NULL, completed_at TEXT, payload_json TEXT NOT NULL,
+     FOREIGN KEY(run_id, step_id) REFERENCES approved_plan_steps(run_id, step_id)
+   );
+   CREATE TABLE IF NOT EXISTS step_runtime_errors(
+     id TEXT PRIMARY KEY, run_id TEXT NOT NULL, step_id TEXT NOT NULL, signature TEXT NOT NULL,
+     status TEXT NOT NULL, last_seen_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+     FOREIGN KEY(run_id, step_id) REFERENCES approved_plan_steps(run_id, step_id)
+   );`,
+  `UPDATE approved_plan_steps
+   SET state = CASE state
+     WHEN 'PENDING' THEN 'STEP_LOCKED'
+     WHEN 'READY' THEN 'STEP_READY'
+     WHEN 'IN_PROGRESS' THEN 'STEP_CONTEXT_ANALYSIS'
+     WHEN 'CORRECTION_REQUIRED' THEN 'STEP_RUNTIME_CORRECTION'
+     WHEN 'COMPLETE' THEN 'STEP_COMPLETE'
+     WHEN 'BLOCKED' THEN 'STEP_BLOCKED'
+     ELSE state
+   END
+   WHERE state IN ('PENDING', 'READY', 'IN_PROGRESS', 'CORRECTION_REQUIRED', 'COMPLETE', 'BLOCKED');
+   UPDATE step_completion_gates
+   SET state = CASE state
+         WHEN 'PENDING' THEN 'STEP_LOCKED'
+         WHEN 'READY' THEN 'STEP_READY'
+         WHEN 'IN_PROGRESS' THEN 'STEP_CONTEXT_ANALYSIS'
+         WHEN 'CORRECTION_REQUIRED' THEN 'STEP_RUNTIME_CORRECTION'
+         WHEN 'COMPLETE' THEN 'STEP_COMPLETE'
+         WHEN 'BLOCKED' THEN 'STEP_BLOCKED'
+         ELSE state
+       END,
+       payload_json = json_set(
+         payload_json,
+         '$.state',
+         CASE state
+           WHEN 'PENDING' THEN 'STEP_LOCKED'
+           WHEN 'READY' THEN 'STEP_READY'
+           WHEN 'IN_PROGRESS' THEN 'STEP_CONTEXT_ANALYSIS'
+           WHEN 'CORRECTION_REQUIRED' THEN 'STEP_RUNTIME_CORRECTION'
+           WHEN 'COMPLETE' THEN 'STEP_COMPLETE'
+           WHEN 'BLOCKED' THEN 'STEP_BLOCKED'
+           ELSE state
+         END
+       )
+   WHERE state IN ('PENDING', 'READY', 'IN_PROGRESS', 'CORRECTION_REQUIRED', 'COMPLETE', 'BLOCKED');`,
+  `CREATE TABLE IF NOT EXISTS step_runtime_corrections(
+     id TEXT PRIMARY KEY, run_id TEXT NOT NULL, step_id TEXT NOT NULL, error_signature TEXT NOT NULL,
+     attempt INTEGER NOT NULL, completed_at TEXT, payload_json TEXT NOT NULL,
+     FOREIGN KEY(run_id, step_id) REFERENCES approved_plan_steps(run_id, step_id)
+   );
+   CREATE INDEX IF NOT EXISTS step_runtime_corrections_by_error
+     ON step_runtime_corrections(run_id, step_id, error_signature, attempt);`
 ];
 
 export class AgentDatabase {
@@ -426,6 +524,290 @@ export class AgentDatabase {
     return runId
       ? this.raw.prepare("SELECT * FROM model_usage WHERE run_id=?").all(runId)
       : this.raw.prepare("SELECT * FROM model_usage").all();
+  }
+
+  saveStepPlan(plan: ApprovedStepPlan): void {
+    const parsed = ApprovedStepPlanSchema.parse(plan);
+    this.raw
+      .prepare(
+        `INSERT INTO approved_step_plans(run_id,plan_id,approved_revision,frozen_at,created_at,payload_json)
+         VALUES(@runId,@id,@approvedRevision,@frozenAt,@createdAt,@payloadJson)
+         ON CONFLICT(run_id) DO UPDATE SET plan_id=excluded.plan_id,
+         approved_revision=excluded.approved_revision,frozen_at=excluded.frozen_at,
+         created_at=excluded.created_at,payload_json=excluded.payload_json`
+      )
+      .run({
+        runId: parsed.runId,
+        id: parsed.id,
+        approvedRevision: parsed.approvedRevision,
+        frozenAt: parsed.frozenAt,
+        createdAt: parsed.createdAt,
+        payloadJson: JSON.stringify(parsed)
+      });
+  }
+
+  stepPlan(runId: string): ApprovedStepPlan | null {
+    const row = this.raw
+      .prepare("SELECT payload_json FROM approved_step_plans WHERE run_id=?")
+      .get(runId) as { payload_json: string } | undefined;
+    return row ? ApprovedStepPlanSchema.parse(JSON.parse(row.payload_json)) : null;
+  }
+
+  savePlanStep(runId: string, step: PlanStep, state: StepCompletionGate["state"]): void {
+    const parsed = PlanStepSchema.parse(step);
+    this.raw
+      .prepare(
+        `INSERT INTO approved_plan_steps(run_id,step_id,step_order,state,payload_json)
+         VALUES(?,?,?,?,?) ON CONFLICT(run_id,step_id) DO UPDATE SET step_order=excluded.step_order,
+         state=excluded.state,payload_json=excluded.payload_json`
+      )
+      .run(runId, parsed.id, parsed.order, state, JSON.stringify(parsed));
+  }
+
+  planSteps(runId: string): Array<{ step: PlanStep; state: StepCompletionGate["state"] }> {
+    return (
+      this.raw
+        .prepare(
+          "SELECT state,payload_json FROM approved_plan_steps WHERE run_id=? ORDER BY step_order"
+        )
+        .all(runId) as Array<{ state: StepCompletionGate["state"]; payload_json: string }>
+    ).map((row) => ({
+      step: PlanStepSchema.parse(JSON.parse(row.payload_json)),
+      state: row.state
+    }));
+  }
+
+  saveStepCompletionGate(gate: StepCompletionGate): void {
+    const parsed = StepCompletionGateSchema.parse(gate);
+    this.raw
+      .prepare(
+        `INSERT INTO step_completion_gates(run_id,step_id,state,updated_at,payload_json)
+         VALUES(@runId,@stepId,@state,@updatedAt,@payloadJson)
+         ON CONFLICT(run_id,step_id) DO UPDATE SET state=excluded.state,updated_at=excluded.updated_at,
+         payload_json=excluded.payload_json`
+      )
+      .run({
+        runId: parsed.runId,
+        stepId: parsed.stepId,
+        state: parsed.state,
+        updatedAt: parsed.updatedAt,
+        payloadJson: JSON.stringify(parsed)
+      });
+  }
+
+  transitionStepCompletionGate(
+    gate: StepCompletionGate,
+    expectedState: StepCompletionGate["state"]
+  ): boolean {
+    const parsed = StepCompletionGateSchema.parse(gate);
+    this.raw.exec("BEGIN IMMEDIATE");
+    try {
+      const gateUpdate = this.raw
+        .prepare(
+          `UPDATE step_completion_gates
+           SET state=@state,updated_at=@updatedAt,payload_json=@payloadJson
+           WHERE run_id=@runId AND step_id=@stepId AND state=@expectedState`
+        )
+        .run({
+          runId: parsed.runId,
+          stepId: parsed.stepId,
+          state: parsed.state,
+          updatedAt: parsed.updatedAt,
+          payloadJson: JSON.stringify(parsed),
+          expectedState
+        });
+      if (gateUpdate.changes !== 1) {
+        this.raw.exec("ROLLBACK");
+        return false;
+      }
+      const stepUpdate = this.raw
+        .prepare(`UPDATE approved_plan_steps SET state=? WHERE run_id=? AND step_id=?`)
+        .run(parsed.state, parsed.runId, parsed.stepId);
+      if (stepUpdate.changes !== 1) {
+        throw new Error(`Plan step not found for gate transition: ${parsed.stepId}`);
+      }
+      this.raw.exec("COMMIT");
+      return true;
+    } catch (error) {
+      this.raw.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  stepCompletionGates(runId: string): StepCompletionGate[] {
+    return (
+      this.raw
+        .prepare("SELECT payload_json FROM step_completion_gates WHERE run_id=? ORDER BY step_id")
+        .all(runId) as Array<{ payload_json: string }>
+    ).map((row) => StepCompletionGateSchema.parse(JSON.parse(row.payload_json)));
+  }
+
+  saveStepAmendment(amendment: StepAmendment): void {
+    const parsed = StepAmendmentSchema.parse(amendment);
+    this.raw
+      .prepare(
+        `INSERT INTO step_amendments(id,run_id,step_id,status,proposed_at,approved_at,payload_json)
+         VALUES(@id,@runId,@stepId,@status,@proposedAt,@approvedAt,@payloadJson)
+         ON CONFLICT(id) DO UPDATE SET status=excluded.status,approved_at=excluded.approved_at,
+         payload_json=excluded.payload_json`
+      )
+      .run({
+        id: parsed.id,
+        runId: parsed.runId,
+        stepId: parsed.stepId,
+        status: parsed.status,
+        proposedAt: parsed.proposedAt,
+        approvedAt: parsed.approvedAt,
+        payloadJson: JSON.stringify(parsed)
+      });
+  }
+
+  stepAmendments(runId: string): StepAmendment[] {
+    return (
+      this.raw
+        .prepare("SELECT payload_json FROM step_amendments WHERE run_id=? ORDER BY proposed_at")
+        .all(runId) as Array<{ payload_json: string }>
+    ).map((row) => StepAmendmentSchema.parse(JSON.parse(row.payload_json)));
+  }
+
+  saveStepEvidence(evidence: StepEvidence): void {
+    const parsed = StepEvidenceSchema.parse(evidence);
+    this.raw
+      .prepare(
+        `INSERT INTO step_evidence(id,run_id,step_id,kind,locator,content_hash,created_at,payload_json)
+         VALUES(@id,@runId,@stepId,@kind,@locator,@contentHash,@createdAt,@payloadJson)
+         ON CONFLICT(id) DO UPDATE SET locator=excluded.locator,content_hash=excluded.content_hash,
+         payload_json=excluded.payload_json`
+      )
+      .run({
+        id: parsed.id,
+        runId: parsed.runId,
+        stepId: parsed.stepId,
+        kind: parsed.kind,
+        locator: parsed.locator,
+        contentHash: parsed.contentHash,
+        createdAt: parsed.createdAt,
+        payloadJson: JSON.stringify(parsed)
+      });
+  }
+
+  stepEvidence(runId: string, stepId?: string): StepEvidence[] {
+    const rows = stepId
+      ? (this.raw
+          .prepare(
+            "SELECT payload_json FROM step_evidence WHERE run_id=? AND step_id=? ORDER BY created_at"
+          )
+          .all(runId, stepId) as Array<{ payload_json: string }>)
+      : (this.raw
+          .prepare("SELECT payload_json FROM step_evidence WHERE run_id=? ORDER BY created_at")
+          .all(runId) as Array<{ payload_json: string }>);
+    return rows.map((row) => StepEvidenceSchema.parse(JSON.parse(row.payload_json)));
+  }
+
+  saveStepTerminalOperation(operation: StepTerminalOperation): void {
+    const parsed = StepTerminalOperationSchema.parse(operation);
+    this.raw
+      .prepare(
+        `INSERT INTO step_terminal_operations(id,run_id,step_id,status,started_at,completed_at,payload_json)
+         VALUES(@id,@runId,@stepId,@status,@startedAt,@completedAt,@payloadJson)
+         ON CONFLICT(id) DO UPDATE SET status=excluded.status,completed_at=excluded.completed_at,
+         payload_json=excluded.payload_json`
+      )
+      .run({
+        id: parsed.id,
+        runId: parsed.runId,
+        stepId: parsed.stepId,
+        status: parsed.status,
+        startedAt: parsed.startedAt,
+        completedAt: parsed.completedAt,
+        payloadJson: JSON.stringify(parsed)
+      });
+  }
+
+  stepTerminalOperations(runId: string, stepId?: string): StepTerminalOperation[] {
+    const rows = stepId
+      ? (this.raw
+          .prepare(
+            "SELECT payload_json FROM step_terminal_operations WHERE run_id=? AND step_id=? ORDER BY started_at"
+          )
+          .all(runId, stepId) as Array<{ payload_json: string }>)
+      : (this.raw
+          .prepare(
+            "SELECT payload_json FROM step_terminal_operations WHERE run_id=? ORDER BY started_at"
+          )
+          .all(runId) as Array<{ payload_json: string }>);
+    return rows.map((row) => StepTerminalOperationSchema.parse(JSON.parse(row.payload_json)));
+  }
+
+  saveStepRuntimeError(error: StepRuntimeError): void {
+    const parsed = StepRuntimeErrorSchema.parse(error);
+    this.raw
+      .prepare(
+        `INSERT INTO step_runtime_errors(id,run_id,step_id,signature,status,last_seen_at,payload_json)
+         VALUES(@id,@runId,@stepId,@signature,@status,@lastSeenAt,@payloadJson)
+         ON CONFLICT(id) DO UPDATE SET status=excluded.status,last_seen_at=excluded.last_seen_at,
+         payload_json=excluded.payload_json`
+      )
+      .run({
+        id: parsed.id,
+        runId: parsed.runId,
+        stepId: parsed.stepId,
+        signature: parsed.signature,
+        status: parsed.status,
+        lastSeenAt: parsed.lastSeenAt,
+        payloadJson: JSON.stringify(parsed)
+      });
+  }
+
+  stepRuntimeErrors(runId: string, stepId?: string): StepRuntimeError[] {
+    const rows = stepId
+      ? (this.raw
+          .prepare(
+            "SELECT payload_json FROM step_runtime_errors WHERE run_id=? AND step_id=? ORDER BY last_seen_at"
+          )
+          .all(runId, stepId) as Array<{ payload_json: string }>)
+      : (this.raw
+          .prepare(
+            "SELECT payload_json FROM step_runtime_errors WHERE run_id=? ORDER BY last_seen_at"
+          )
+          .all(runId) as Array<{ payload_json: string }>);
+    return rows.map((row) => StepRuntimeErrorSchema.parse(JSON.parse(row.payload_json)));
+  }
+
+  saveRuntimeCorrection(attempt: RuntimeCorrectionAttempt): void {
+    const parsed = RuntimeCorrectionAttemptSchema.parse(attempt);
+    this.raw
+      .prepare(
+        `INSERT INTO step_runtime_corrections(
+          id,run_id,step_id,error_signature,attempt,completed_at,payload_json
+        ) VALUES(@id,@runId,@stepId,@errorSignature,@attempt,@completedAt,@payloadJson)
+        ON CONFLICT(id) DO UPDATE SET completed_at=excluded.completed_at,payload_json=excluded.payload_json`
+      )
+      .run({
+        id: parsed.id,
+        runId: parsed.runId,
+        stepId: parsed.stepId,
+        errorSignature: parsed.errorSignature,
+        attempt: parsed.attempt,
+        completedAt: parsed.completedAt,
+        payloadJson: JSON.stringify(parsed)
+      });
+  }
+
+  runtimeCorrections(runId: string, stepId?: string): RuntimeCorrectionAttempt[] {
+    const rows = stepId
+      ? (this.raw
+          .prepare(
+            `SELECT payload_json FROM step_runtime_corrections
+             WHERE run_id=? AND step_id=? ORDER BY error_signature,attempt`
+          )
+          .all(runId, stepId) as Array<{ payload_json: string }>)
+      : (this.raw
+          .prepare(
+            "SELECT payload_json FROM step_runtime_corrections WHERE run_id=? ORDER BY step_id,error_signature,attempt"
+          )
+          .all(runId) as Array<{ payload_json: string }>);
+    return rows.map((row) => RuntimeCorrectionAttemptSchema.parse(JSON.parse(row.payload_json)));
   }
 
   private savePolicy(

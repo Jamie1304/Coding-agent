@@ -859,6 +859,17 @@ input:focus {
   color: #71869b;
   margin-top: 4px;
 }
+.runtime-startup {
+  max-width: 860px;
+  margin: 42px auto;
+}
+.runtime-startup .actions {
+  flex-wrap: wrap;
+}
+.runtime-startup .muted {
+  color: #9aabbd;
+  max-width: 670px;
+}
 @media (max-width: 1200px) {
   .provider-grid {
     grid-template-columns: repeat(2, 1fr);

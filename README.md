@@ -1,106 +1,48 @@
 # Personal Codex Agent
 
-Personal Codex Agent is a Windows-first, single-user desktop application that turns an incomplete
-software request into a frozen, testable specification and then runs the approved work through
-Codex in an isolated Git worktree. It combines an Electron/React desktop client, a loopback-only
-Node daemon, a small VS Code workspace bridge, SQLite run history, deterministic orchestration,
-Git/GitHub adapters, quality gates, deployment/rollback adapters, and evidence reports.
+Personal Codex Agent is a Windows desktop application for frozen, testable software specifications and approved Codex execution. It keeps the Electron renderer sandboxed, runs privileged work in a loopback-only daemon, stores local history in SQLite, and preserves Phase 3 runtime gates.
 
-No repository write or Codex implementation turn is allowed before the user approves a prompt
-revision. GitHub and deployment stages are skipped honestly when they are not configured.
+## Install and start
 
-```mermaid
-flowchart LR
-  VS[VS Code bridge] -->|workspace snapshot| D[127.0.0.1 daemon]
-  UI[Sandboxed desktop UI] -->|token + typed API| D
-  D --> DB[(SQLite)]
-  D --> R[Prompt reviewer]
-  R --> A{User approves?}
-  A -->|revise| R
-  A -->|yes, freeze| W[Isolated worktree]
-  W --> C[Codex app-server]
-  C --> Q[Tests, diff, security]
-  Q --> G[GitHub / deployment adapters]
-  G --> E[Markdown + JSON evidence]
-```
+For normal use, download `Personal-Codex-Agent-Setup-<version>-x64.exe` from a verified release and run it. The per-user installer creates Start-menu and optional desktop shortcuts. The installed app needs no Node.js, npm, repository checkout, or terminal, and starts/stops its bundled daemon automatically.
 
-## Quick start
+On first run, **Setup & Connections** separates the core runtime from optional Git, Codex, VS Code, GitHub CLI, and Ollama integrations. Each install action requires confirmation and uses a fixed approved command; GitHub and Codex authentication remain user-controlled.
 
-Node.js 22.5+ and npm are required. Git is required for repository lifecycle operations. VS Code,
-Codex, and GitHub CLI are integrations: their absence does not prevent the desktop shell or manual
-folder mode from starting.
+Installed releases use `%LOCALAPPDATA%\\PersonalCodexAgent`. A portable executable is also supplied for supported no-install scenarios.
 
-Runnable command for this computer:
+## Developer commands
+
+Developer prerequisites are Node.js 22.5+ and npm. From this repository:
 
 ```powershell
 Set-Location "C:\Users\Jamie Kanbier\Documents\Coding agent"
-.\scripts\bootstrap.ps1
 npm run dev
 ```
 
-Generic example — replace the visibly marked placeholder before running:
+| Command                     | Purpose                                                                  |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `npm run build`             | Bundle the daemon, desktop, and VS Code extension.                       |
+| `npm run package`           | Create installer and portable artifacts, then verify contents/checksums. |
+| `npm run package:installer` | Create the NSIS installer only.                                          |
+| `npm run package:portable`  | Create the portable executable only.                                     |
+| `npm run package:verify`    | Verify emitted release artifacts.                                        |
+| `npm run doctor`            | Development-environment diagnostics.                                     |
+| `npm run validate`          | Formatting, lint, types, tests, build, and packaging.                    |
 
-```powershell
-Set-Location "<YOUR-AGENT-REPOSITORY-PATH>"
-.\scripts\bootstrap.ps1
-npm run dev
-```
+Artifacts are emitted below `artifacts/installers/`:
 
-The PowerShell scripts derive the repository root from `$PSScriptRoot`, so they also work from a
-different current directory and with spaces in the path.
+- `Personal-Codex-Agent-Setup-0.3.0-x64.exe`
+- `Personal-Codex-Agent-Portable-0.3.0-x64.exe`
+- `artifacts/SHA256SUMS.txt`
 
-Install optional integrations only when needed:
-
-```powershell
-npm install -g @openai/codex
-codex login
-winget install --id GitHub.cli -e
-gh auth login
-.\scripts\install-vscode-extension.ps1
-```
-
-Open a Git project in VS Code, verify the exact workspace in the desktop header, submit a prompt,
-answer only the material questions, review the diff, and select **Approve & execute**.
-
-## Commands
-
-| Command                    | Purpose                                                  |
-| -------------------------- | -------------------------------------------------------- |
-| `npm run dev`              | Start daemon, Vite renderer, and Electron desktop        |
-| `npm run build`            | Build daemon, desktop, and extension                     |
-| `npm test`                 | Run all deterministic tests                              |
-| `npm run test:unit`        | Unit tests                                               |
-| `npm run test:integration` | SQLite, Git, workspace, reporting tests                  |
-| `npm run test:e2e`         | Authenticated local API workflow                         |
-| `npm run test:security`    | Token, path, redaction, and Electron isolation tests     |
-| `npm run lint`             | Strict ESLint                                            |
-| `npm run typecheck`        | Strict TypeScript                                        |
-| `npm run package`          | Unsigned Windows directory, VSIX, and SHA-256 checksums  |
-| `npm run doctor`           | Prerequisite and authentication diagnostics              |
-| `npm run doctor -- --json` | Machine-readable diagnostics used by Setup & Connections |
-
-## Packages and artifacts
-
-- Desktop: `artifacts/desktop/Personal Codex Agent-win32-x64/Personal Codex Agent.exe`
-- Daemon build: `dist/daemon/index.js`
-- VS Code extension: `artifacts/personal-codex-agent-vscode-0.2.0.vsix`
-- Checksums: `artifacts/SHA256SUMS.txt`
-- Per-run evidence: `<project>/.agent-runs/<run-id>/`
-
-The Windows build is intentionally unsigned because no signing certificate is available. Windows
-may show a SmartScreen warning. See [the setup guide](docs/user-setup-guide.md) for exact steps and
-[the security model](docs/security-model.md) before enabling automatic GitHub or deployment stages.
+The release is unsigned until an organization-controlled Windows code-signing certificate is available. The build has signing hooks, but it never bypasses SmartScreen or enterprise Application Control policies.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
 - [Windows setup and first run](docs/user-setup-guide.md)
-- [Developer guide](docs/developer-guide.md)
-- [Codex integration](docs/codex-integration.md)
-- [GitHub lifecycle](docs/github-integration.md)
-- [Deployment and rollback](docs/deployment-configuration.md)
+- [Architecture](docs/architecture.md)
 - [Security model](docs/security-model.md)
+- [Developer guide](docs/developer-guide.md)
 - [Testing strategy](docs/testing-strategy.md)
 - [Troubleshooting](docs/troubleshooting.md)
-
-Version: **0.2.0**. See [CHANGELOG.md](CHANGELOG.md).
+- [Desktop production plan](docs/desktop-production-plan.md)

@@ -4,10 +4,19 @@ import { delimiter, join } from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import {
   commandInvocation,
+  kindFor,
   resolveCommand,
   runCommandResolution,
   type CommandResolution
 } from "@agent/shared";
+
+describe("cross-platform command classification", () => {
+  it("treats extensionless Unix commands as executables rather than Node scripts", () => {
+    expect(kindFor("/usr/bin/git", "linux")).toBe("exe");
+    expect(kindFor("/usr/local/bin/tool", "darwin")).toBe("exe");
+    expect(kindFor("/tmp/worker.mjs", "linux")).toBe("script");
+  });
+});
 
 const windowsOnly = process.platform === "win32" ? describe : describe.skip;
 

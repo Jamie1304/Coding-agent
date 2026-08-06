@@ -1,121 +1,33 @@
 # Windows setup and first run
 
-## 1. Install prerequisites
+## Install
 
-Open PowerShell (not necessarily as Administrator):
+Download `Personal-Codex-Agent-Setup-<version>-x64.exe` from a verified release and confirm its SHA-256 against the published checksum file. Run the installer as the signed-in user. It is per-user by default, supports upgrades, creates a Start-menu shortcut, and can create a desktop shortcut. No Node.js, npm, repository checkout, or terminal is required.
 
-```powershell
-winget install --id OpenJS.NodeJS.LTS -e
-winget install --id Git.Git -e
-```
+The installer leaves `%LOCALAPPDATA%\\PersonalCodexAgent` in place during an upgrade. During uninstall, it asks whether to remove local settings, history, and logs. Project `.agent-runs` evidence and project worktrees are never part of application uninstall.
 
-VS Code, Codex, and GitHub CLI are optional integrations. Install only those you intend to use:
+## First run
 
-```powershell
-winget install --id Microsoft.VisualStudioCode -e
-npm install -g @openai/codex
-codex --version
-codex login
-codex login status
-winget install --id GitHub.cli -e
-gh auth login
-gh auth status
-```
+The desktop app displays an explicit startup state while it launches its own local daemon. It uses a random loopback port, a fresh per-launch token, an authenticated health check, and a compatibility check before the renderer connects. If startup fails, use **Retry runtime**, **Start safe mode**, **Open logs**, or **Export diagnostics**; do not edit `daemon.json`.
 
-Codex may use ChatGPT sign-in or its supported API-key flow. Prefer OS keyring credential storage.
-GitHub is optional until you want live issue/PR/CI/release stages.
+Open **Setup & Connections** after startup. The bundled Electron runtime and writable local data are core requirements. Git, Codex CLI, VS Code and its extension, GitHub CLI, and Ollama are optional integrations. The page records versioned setup state and explains what each integration enables. Installation requires confirmation and uses fixed package identifiers only; the app does not accept a command string from the UI.
 
-## 2. Bootstrap and package
+GitHub and Codex authentication are deliberately user-controlled. Follow the official sign-in UI after installation; a failed sign-in leaves local/offline features usable.
 
-Runnable command for this computer:
+## Use the agent
 
-```powershell
-Set-Location "C:\Users\Jamie Kanbier\Documents\Coding agent"
-.\scripts\bootstrap.ps1
-.\scripts\install-vscode-extension.ps1
-```
+1. Choose the exact project folder in **New Run**.
+2. Describe the change and select **Review prompt**.
+3. Answer material questions, then review the revised prompt, acceptance criteria, risks, and tests.
+4. Approve only the frozen revision you intend to execute.
+5. Follow verification evidence. Runtime errors block the active implementation step until correction and regression evidence are recorded.
 
-Generic example — replace the placeholder:
+## Updates and portable use
 
-```powershell
-Set-Location "<YOUR-AGENT-REPOSITORY-PATH>"
-.\scripts\bootstrap.ps1
-```
+The application prepares update metadata and reports whether an update source is configured. It does not claim automatic update until signed update hosting and release credentials are configured. Install a newer verified installer to upgrade the standard installation.
 
-The bootstrap script derives the root from its own location, distinguishes blocking and optional
-checks, installs or refreshes dependencies, builds, tests, and packages the desktop and extension.
-It is safe to rerun and may be invoked from any current directory.
+The portable executable is useful when installation is not permitted. It has the same daemon lifecycle and safety boundaries, but receives no automatic update channel.
 
-## 3. Start and connect
+## Developer-only setup
 
-```powershell
-.\scripts\dev.ps1
-```
-
-Open a test Git project in VS Code. Reload the window after VSIX installation. The status bar should
-show `Codex Agent: <project>`. In a multi-root workspace, run **Personal Codex Agent: Set Active
-Project**. If needed, select the folder manually in the desktop app.
-
-Open **Setup & Connections**, run `npm run doctor`, and confirm Node, Git, Codex, authentication,
-database/report access, extension connection, and exact workspace. The UI must show the intended
-absolute path, branch, commit, remote, dirty state, technologies, and detected tests.
-
-## 4. First prompt
-
-1. Enter a development request in **New Run** and select **Review prompt**.
-2. Answer only the critical questions. Each states why it matters and which decision it affects.
-3. Review original versus improved prompt, changes, assumptions, criteria, tests, risks, version
-   bump, and implementation sequence.
-4. Select **Reject & revise** with a concrete reason to test realignment. Confirm the next question
-   addresses that rejection and prior answers remain.
-5. Select **Approve & execute** only when the exact workspace and specification are correct.
-6. Follow the live timeline. Approval freezes the revision; Codex then runs in an isolated worktree.
-7. Open Markdown/JSON evidence in `<project>\.agent-runs\<run-id>\`.
-
-## 5. Configure a project
-
-Copy an example to `<project>\.agent\project.yml`. Set real project-native quality commands. Enable
-GitHub only after `gh auth status` passes. Leave deployment disabled until staging, production smoke,
-rollback, and any migration backup commands have been tested manually. See
-[deployment configuration](deployment-configuration.md).
-
-## 6. Blocked runs, updates, and removal
-
-A blocked run is not success. Read its final event and report, fix the external condition, refresh
-the workspace, and resume from a fresh preflight. To update, pull the repository and rerun
-`.\scripts\bootstrap.ps1`.
-
-Uninstall the VSIX:
-
-```powershell
-code --uninstall-extension personal-codex-agent.personal-codex-agent-vscode
-```
-
-To reset local state, stop the app, back up reports, and remove
-`%LOCALAPPDATA%\PersonalCodexAgent`. This does not remove project `.agent-runs` or worktrees. See
-[troubleshooting](troubleshooting.md) for Windows, Git, Codex, GitHub, SQLite, worktree, CI, and
-packaging failures.
-
-## 7. Development process behavior
-
-Use PowerShell 7 or Windows PowerShell. `npm run dev` validates the Electron runtime first, starts
-the daemon, then starts a programmatic Vite server and obtains its actual dynamic loopback URL
-before launching Electron. The chosen daemon and renderer URLs are printed and passed explicitly to
-Electron.
-
-Press `Ctrl+C` once to stop the owned Electron process tree, Vite server, and daemon. A repository
-lock prevents two development supervisors from interfering. Stale locks are removed only after the
-recorded PID is confirmed dead.
-
-If port 5173 is occupied, Vite selects another port and Electron receives that exact URL. If a CLI
-is installed but not on `PATH`, `npm run doctor` reports its resolved fallback path and a PATH repair
-action. Detailed daemon state is under `%LOCALAPPDATA%\PersonalCodexAgent`; development lock state is
-in `.agent\dev-run.lock.json`.
-
-To confirm the extension:
-
-```powershell
-code --list-extensions | Select-String personal-codex-agent
-```
-
-Reload VS Code with **Developer: Reload Window** after installation.
+Repository development uses Node.js 22.5+, npm, and the scripts in the [developer guide](developer-guide.md). Those requirements do not apply to installed users.

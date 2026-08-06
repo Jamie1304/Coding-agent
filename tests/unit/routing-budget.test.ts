@@ -182,6 +182,51 @@ describe("deterministic routing and classification", () => {
     ctx.cacheKeys.add(stableCacheKey(task(), first));
     expect(new ModelRouter().route(task(), ctx).selectedProviderId).toBe("b");
   });
+
+  it("attaches configured strategy metadata to the routing decision", () => {
+    const ctx = context([
+      model({ providerId: "cloud", local: false, modelId: "sol" }),
+      model({ providerId: "local", local: true, modelId: "local-coder" })
+    ]);
+    ctx.config = {
+      ...ctx.config,
+      strategy: {
+        id: "maximum_quality",
+        version: "2.0",
+        name: "Maximum Quality",
+        description: "Prefer the highest quality model available.",
+        roleAssignments: {
+          task_classification: "planning",
+          master_planning: "planning",
+          normal_coding: "coding",
+          test_generation: "coding"
+        },
+        plannerRole: "planning",
+        plannerModel: "sol",
+        primaryWorkerRole: "coding",
+        primaryWorkerModel: "local-coder",
+        testWorkerRole: "coding",
+        testWorkerModel: "local-coder",
+        runtimeAnalysisRole: "verification",
+        runtimeAnalysisModel: "sol",
+        independentReviewerRole: "code_review",
+        independentReviewerModel: "sol",
+        releaseJudgeRole: "verification",
+        releaseJudgeModel: "sol",
+        fallbackModels: ["local-coder"],
+        escalationRules: ["hard_debugging_after_retries"],
+        maximumAttempts: 3,
+        maximumCost: 10,
+        requiresUserApprovalForEscalation: true,
+        localOnly: false
+      }
+    };
+    const decision = new ModelRouter().route(task({ role: "planning" }), ctx);
+    expect(decision.strategyId).toBe("maximum_quality");
+    expect(decision.strategyVersion).toBe("2.0");
+    expect(decision.strategyName).toBe("Maximum Quality");
+    expect(decision.strategyDescription).toContain("highest quality");
+  });
 });
 
 describe("tokens and budgets", () => {

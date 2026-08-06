@@ -1,0 +1,52 @@
+appId: com.jamiekanbier.personalcodexagent
+productName: Personal Codex Agent
+artifactName: ${productName}-${version}-${arch}.${ext}
+directories:
+  output: artifacts/installers
+files:
+  - dist/desktop/**
+  - package.json
+  - "!**/*.map"
+extraResources:
+  - from: dist/daemon/index.cjs
+    to: daemon/index.cjs
+  - from: node_modules/@napi-rs/keyring
+    to: daemon/node_modules/@napi-rs/keyring
+    filter:
+      - "**/*"
+  - from: node_modules/@napi-rs/keyring-win32-x64-msvc
+    to: daemon/node_modules/@napi-rs/keyring-win32-x64-msvc
+    filter:
+      - "**/*"
+  - from: artifacts
+    to: extensions
+    filter:
+      - personal-codex-agent-vscode-0.3.0.vsix
+asar: true
+asarUnpack:
+  - "**/*.node"
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  signtoolOptions:
+    signingHashAlgorithms:
+      - sha256
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Personal Codex Agent
+  deleteAppDataOnUninstall: false
+  artifactName: Personal-Codex-Agent-Setup-${version}-${arch}.${ext}
+  include: build/installer.nsh
+portable:
+  artifactName: Personal-Codex-Agent-Portable-${version}-${arch}.${ext}
+publish: null

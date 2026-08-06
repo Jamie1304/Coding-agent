@@ -4,7 +4,7 @@ import type { ElectronDiagnostic } from "../../scripts/electron-runtime.js";
 const windowsOnly = process.platform === "win32" ? describe : describe.skip;
 
 windowsOnly("Windows doctor", () => {
-  it("truthfully detects npm and VS Code while keeping GitHub optional", async () => {
+  it("truthfully reports optional VS Code availability while keeping GitHub optional", async () => {
     const electron: ElectronDiagnostic = {
       packageVersion: "43.2.0",
       rawExecutable: "electron.exe",
@@ -31,7 +31,13 @@ windowsOnly("Windows doctor", () => {
     const byId = new Map(report.checks.map((check) => [check.id, check]));
     expect(byId.get("npm")).toMatchObject({ level: "PASS", blocking: false });
     expect(byId.get("npm")?.resolvedPath?.toLowerCase()).toMatch(/npm\.(cmd|exe)$/);
-    expect(byId.get("vscode")?.resolvedPath?.toLowerCase()).toMatch(/(code\.cmd|code\.exe)$/);
+    const vscode = byId.get("vscode");
+    expect(vscode).toMatchObject({ requirement: "optional", blocking: false });
+    if (vscode?.resolvedPath) {
+      expect(vscode.resolvedPath.toLowerCase()).toMatch(/(code\.cmd|code\.exe)$/);
+    } else {
+      expect(vscode).toMatchObject({ level: "OPTIONAL", resolvedPath: null });
+    }
     expect(byId.get("github")?.requirement).toBe("optional");
     expect(report.summary.blockingFailures).toBe(0);
     const serialized = JSON.stringify(report);

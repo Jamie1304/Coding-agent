@@ -35,7 +35,7 @@ import {
   redactSecrets
 } from "@agent/core";
 import type { CodexProvider } from "@agent/codex-provider";
-import { runDoctor } from "../../../scripts/doctor-lib.js";
+import { runRuntimeDiagnostics } from "./diagnostics.js";
 
 export interface DaemonOptions {
   host?: "127.0.0.1";
@@ -47,6 +47,8 @@ export interface DaemonOptions {
   codexProvider?: CodexProvider;
   secretStore?: SecretStore;
   providerService?: ProviderService;
+  productVersion?: string;
+  protocolVersion?: number;
 }
 
 export interface DaemonHandle {
@@ -60,6 +62,8 @@ export async function createDaemon(options: DaemonOptions = {}): Promise<DaemonH
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 0;
   const token = options.token ?? randomBytes(32).toString("base64url");
+  const productVersion = options.productVersion ?? process.env.AGENT_APP_VERSION ?? "0.3.0";
+  const protocolVersion = options.protocolVersion ?? 1;
   const dataDirectory =
     options.dataDirectory ??
     process.env.AGENT_DATA_DIR ??
@@ -109,7 +113,6 @@ export async function createDaemon(options: DaemonOptions = {}): Promise<DaemonH
       await reply.code(204).send();
       return;
     }
-    if (request.url === "/health") return;
     const provided =
       request.headers["x-agent-token"] ?? request.headers.authorization?.replace(/^Bearer\s+/i, "");
     if (provided !== token) {
@@ -126,7 +129,12 @@ export async function createDaemon(options: DaemonOptions = {}): Promise<DaemonH
     });
   });
 
-  app.get("/health", async () => ({ status: "ok", bind: host, version: "0.2.0" }));
+  app.get("/health", async () => ({
+    status: "ok",
+    bind: host,
+    version: productVersion,
+    protocol: protocolVersion
+  }));
   app.get("/api/setup/status", async () => {
     const provider = options.codexProvider;
     const [codex, auth] = provider
@@ -144,7 +152,7 @@ export async function createDaemon(options: DaemonOptions = {}): Promise<DaemonH
       workspace: currentWorkspace
     };
   });
-  app.get("/api/setup/diagnostics", async () => runDoctor(process.cwd()));
+  app.get("/api/setup/diagnostics", async () => runRuntimeDiagnostics(dataDirectory));
 
   app.get("/api/workspace/current", async () => {
     if (!currentWorkspace) {

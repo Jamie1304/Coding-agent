@@ -67,7 +67,7 @@ describe("Phase 1 to Phase 2 database migration", () => {
     );
     expect(
       migrated.raw.prepare("SELECT version FROM schema_migrations ORDER BY version").all()
-    ).toEqual([{ version: 1 }, { version: 2 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
     migrated.close();
   });
 });

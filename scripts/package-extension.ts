@@ -5,7 +5,7 @@ import { join } from "node:path";
 const root = process.cwd();
 await mkdir(join(root, "artifacts"), { recursive: true });
 const cli = join(root, "node_modules", "@vscode", "vsce", "vsce");
-const output = join(root, "artifacts", "personal-codex-agent-vscode-0.2.0.vsix");
+const output = join(root, "artifacts", "personal-codex-agent-vscode-0.3.0.vsix");
 await new Promise<void>((resolve, reject) => {
   const child = spawn(
     process.execPath,
