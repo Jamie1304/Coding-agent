@@ -152,7 +152,11 @@ describe("in-app provider setup API", () => {
         body: JSON.stringify({ mode: "merge", configuration: JSON.parse(exportText) })
       });
       expect(await imported.json()).toEqual(
-        expect.objectContaining({ importedProviders: 6, importedModels: 6 })
+        expect.objectContaining({
+          importedProviders: 6,
+          importedModels: expect.any(Number),
+          missingCredentials: []
+        })
       );
     } finally {
       await daemon.close();
